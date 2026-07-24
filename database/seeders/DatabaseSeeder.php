@@ -15,8 +15,10 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             OrganizacionalPermissionsSeeder::class,
             EstoquePermissionsSeeder::class,
+            OperacoesPermissionsSeeder::class,
             CentroDistribuicaoSeeder::class,
             AdminUserSeeder::class,
+            MotivoSaidaSeeder::class,
         ]);
     }
 }

@@ -7,10 +7,12 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -57,6 +59,29 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
+            ])
+            // Entradas/Saídas/Estoque são telas Blade (fora do painel Filament),
+            // mas entram na mesma navegação lateral para manter uma experiência
+            // única — ver App\Modules\Estoque\Http\Controllers.
+            ->navigationItems([
+                NavigationItem::make('Entradas')
+                    ->url(fn (): string => route('entradas.index'))
+                    ->icon(Heroicon::OutlinedArrowDownOnSquare)
+                    ->group('Operações')
+                    ->sort(1)
+                    ->visible(fn (): bool => auth()->user()?->can('entradas.view') ?? false),
+                NavigationItem::make('Saídas')
+                    ->url(fn (): string => route('saidas.index'))
+                    ->icon(Heroicon::OutlinedArrowUpOnSquare)
+                    ->group('Operações')
+                    ->sort(2)
+                    ->visible(fn (): bool => auth()->user()?->can('saidas.view') ?? false),
+                NavigationItem::make('Estoque')
+                    ->url(fn (): string => route('estoque.index'))
+                    ->icon(Heroicon::OutlinedArchiveBox)
+                    ->group('Operações')
+                    ->sort(3)
+                    ->visible(fn (): bool => auth()->user()?->can('estoque.view') ?? false),
             ])
             ->middleware([
                 EncryptCookies::class,
