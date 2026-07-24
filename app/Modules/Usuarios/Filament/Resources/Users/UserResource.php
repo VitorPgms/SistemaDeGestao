@@ -3,6 +3,7 @@
 namespace App\Modules\Usuarios\Filament\Resources\Users;
 
 use App\Models\User;
+use App\Modules\Core\Services\ActiveCdResolver;
 use App\Modules\Usuarios\Filament\Resources\Users\Pages\CreateUser;
 use App\Modules\Usuarios\Filament\Resources\Users\Pages\EditUser;
 use App\Modules\Usuarios\Filament\Resources\Users\Pages\ListUsers;
@@ -13,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -43,6 +45,20 @@ class UserResource extends Resource
         return [
             //
         ];
+    }
+
+    /**
+     * O model User não tem CdScope global (veja o comentário em App\Models\User)
+     * para evitar recursão com Auth::user(), então o filtro por CD é aplicado
+     * aqui, explicitamente, só na listagem deste Resource.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $cdId = app(ActiveCdResolver::class)->resolve();
+
+        return $cdId === null ? $query : $query->where('cd_id', $cdId);
     }
 
     public static function getPages(): array

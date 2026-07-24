@@ -49,6 +49,59 @@ class AdminPanelLoginTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_dashboard_renders_for_an_authenticated_admin(): void
+    {
+        Role::findOrCreate('administrador', 'web')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::findOrCreate('acessar-todos-cds', 'web'),
+        );
+
+        $cd = CentroDistribuicao::create(['nome' => 'Betim', 'codigo' => 'BH01']);
+
+        $user = User::create([
+            'name' => 'Administrador',
+            'email' => 'admin@sistemagestao.local',
+            'password' => bcrypt('password'),
+            'cd_id' => $cd->id,
+            'ativo' => true,
+        ]);
+        $user->assignRole('administrador');
+
+        $this->actingAs($user)
+            ->get('/admin')
+            ->assertOk();
+    }
+
+    public function test_dashboard_renders_after_a_real_session_login_not_actingAs(): void
+    {
+        // actingAs() injeta o usuário direto no Guard, sem passar pela sessão.
+        // Este teste simula o fluxo real de navegador: login grava o ID na
+        // sessão, e a requisição seguinte precisa re-resolver o usuário via
+        // SessionGuard::user() -> provider->retrieveById() a partir do zero.
+        Role::findOrCreate('administrador', 'web')->givePermissionTo(
+            \Spatie\Permission\Models\Permission::findOrCreate('acessar-todos-cds', 'web'),
+        );
+
+        $cd = CentroDistribuicao::create(['nome' => 'Betim', 'codigo' => 'BH01']);
+
+        $user = User::create([
+            'name' => 'Administrador',
+            'email' => 'admin@sistemagestao.local',
+            'password' => bcrypt('password'),
+            'cd_id' => $cd->id,
+            'ativo' => true,
+        ]);
+        $user->assignRole('administrador');
+
+        Livewire::test(Login::class)
+            ->set('data.email', 'admin@sistemagestao.local')
+            ->set('data.password', 'password')
+            ->call('authenticate')
+            ->assertHasNoFormErrors();
+
+        // Nova requisição HTTP "de verdade", que precisa reautenticar via sessão.
+        $this->get('/admin')->assertOk();
+    }
+
     public function test_inactive_user_cannot_access_the_panel(): void
     {
         $cd = CentroDistribuicao::create([

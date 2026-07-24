@@ -33,15 +33,13 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Blue,
             ])
+            // Sem ícone no grupo: cada Resource já define o próprio ícone,
+            // e o Filament não permite ícone no grupo e nos itens ao mesmo tempo.
             ->navigationGroups([
-                NavigationGroup::make('Cadastros')
-                    ->icon('heroicon-o-archive-box'),
-                NavigationGroup::make('Operações')
-                    ->icon('heroicon-o-arrows-right-left'),
-                NavigationGroup::make('BI')
-                    ->icon('heroicon-o-chart-bar'),
-                NavigationGroup::make('Configurações')
-                    ->icon('heroicon-o-cog-6-tooth'),
+                NavigationGroup::make('Cadastros'),
+                NavigationGroup::make('Operações'),
+                NavigationGroup::make('BI'),
+                NavigationGroup::make('Configurações'),
             ])
             // Cada módulo registra seus próprios Filament Resources/Pages/Widgets
             // na sua pasta (app/Modules/{Modulo}/Filament/...), sem precisar
