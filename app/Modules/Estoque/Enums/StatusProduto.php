@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Modules\Organizacional\Enums;
+namespace App\Modules\Estoque\Enums;
 
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
-enum StatusColaborador: string implements HasColor, HasLabel
+enum StatusProduto: string implements HasColor, HasLabel
 {
     case Ativo = 'ativo';
     case Inativo = 'inativo';

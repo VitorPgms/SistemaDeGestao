@@ -59,8 +59,8 @@ class ColaboradorForm
                     ->native(false)
                     ->afterOrEqual('data_admissao'),
                 Select::make('status')
-                    ->options(fn () => collect(StatusColaborador::cases())->mapWithKeys(fn ($status) => [$status->value => $status->label()]))
-                    ->default(StatusColaborador::Ativo->value)
+                    ->options(StatusColaborador::class)
+                    ->default(StatusColaborador::Ativo)
                     ->required(),
             ]);
     }

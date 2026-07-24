@@ -41,13 +41,11 @@ class ColaboradoresTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn (StatusColaborador $state) => $state->label())
-                    ->color(fn (StatusColaborador $state) => $state->color()),
+                    ->badge(),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(fn () => collect(StatusColaborador::cases())->mapWithKeys(fn ($status) => [$status->value => $status->label()])),
+                    ->options(StatusColaborador::class),
                 SelectFilter::make('setor_id')
                     ->label('Setor')
                     ->relationship('setor', 'nome'),
