@@ -10,6 +10,7 @@ use App\Modules\Organizacional\Models\CentroDistribuicao;
 use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\Setor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -132,5 +133,83 @@ class ColaboradorResourceTest extends TestCase
         $almoxarife = $this->userComPapel('almoxarife', $this->betim);
 
         $this->assertFalse($almoxarife->can('create', Colaborador::class));
+    }
+
+    public function test_form_rejects_data_demissao_when_status_is_ativo(): void
+    {
+        $supervisor = $this->userComPapel('supervisor', $this->betim);
+        $this->actingAs($supervisor);
+
+        Livewire::test(CreateColaborador::class)
+            ->fillForm([
+                'setor_id' => $this->setorBetim->id,
+                'nome' => 'Carlos',
+                'funcao' => 'Auxiliar',
+                'data_admissao' => '2024-01-10',
+                'data_demissao' => '2024-06-01',
+                'status' => StatusColaborador::Ativo->value,
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['data_demissao']);
+    }
+
+    public function test_form_requires_data_demissao_when_status_is_inativo(): void
+    {
+        $supervisor = $this->userComPapel('supervisor', $this->betim);
+        $this->actingAs($supervisor);
+
+        Livewire::test(CreateColaborador::class)
+            ->fillForm([
+                'setor_id' => $this->setorBetim->id,
+                'nome' => 'Carlos',
+                'funcao' => 'Auxiliar',
+                'data_admissao' => '2024-01-10',
+                'status' => StatusColaborador::Inativo->value,
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['data_demissao']);
+    }
+
+    public function test_model_guard_rejects_data_demissao_when_ativo(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorBetim->id,
+            'nome' => 'Carlos',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'data_demissao' => '2024-06-01',
+            'status' => StatusColaborador::Ativo,
+        ]);
+    }
+
+    public function test_model_guard_requires_data_demissao_when_inativo(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorBetim->id,
+            'nome' => 'Carlos',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Inativo,
+        ]);
+    }
+
+    public function test_model_guard_rejects_setor_from_different_cd(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorGoiania->id,
+            'nome' => 'Carlos',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Ativo,
+        ]);
     }
 }

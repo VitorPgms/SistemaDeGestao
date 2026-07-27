@@ -3,11 +3,14 @@
 namespace Tests\Feature\Organizacional;
 
 use App\Models\User;
+use App\Modules\Organizacional\Enums\StatusColaborador;
 use App\Modules\Organizacional\Filament\Resources\Setores\Pages\CreateSetor;
 use App\Modules\Organizacional\Filament\Resources\Setores\Pages\ListSetores;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
+use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\Setor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -106,5 +109,32 @@ class SetorResourceTest extends TestCase
         $this->actingAs($almoxarife);
 
         $this->assertFalse($almoxarife->can('create', Setor::class));
+    }
+
+    public function test_cannot_deactivate_setor_with_active_colaboradores(): void
+    {
+        $setor = Setor::create(['cd_id' => $this->betim->id, 'nome' => 'Recebimento']);
+
+        Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $setor->id,
+            'nome' => 'João',
+            'funcao' => 'Estoquista',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Ativo,
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $setor->update(['ativo' => false]);
+    }
+
+    public function test_can_deactivate_setor_without_active_colaboradores(): void
+    {
+        $setor = Setor::create(['cd_id' => $this->betim->id, 'nome' => 'Recebimento']);
+
+        $setor->update(['ativo' => false]);
+
+        $this->assertFalse($setor->fresh()->ativo);
     }
 }

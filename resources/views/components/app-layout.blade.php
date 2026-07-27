@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Sistema de Gestão' }}</title>
-    <link rel="stylesheet" href="{{ asset('css/filament/filament/app.css') }}">
+    @vite('resources/css/app.css')
 </head>
 <body class="antialiased bg-gray-50 text-gray-900">
     <div class="min-h-screen flex flex-col">

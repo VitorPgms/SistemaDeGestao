@@ -57,11 +57,14 @@ class ColaboradorForm
                 DatePicker::make('data_demissao')
                     ->label('Data de demissão')
                     ->native(false)
-                    ->afterOrEqual('data_admissao'),
+                    ->afterOrEqual('data_admissao')
+                    ->requiredIf('status', StatusColaborador::Inativo->value)
+                    ->prohibitedUnless('status', StatusColaborador::Inativo->value),
                 Select::make('status')
                     ->options(StatusColaborador::class)
                     ->default(StatusColaborador::Ativo)
-                    ->required(),
+                    ->required()
+                    ->live(),
             ]);
     }
 }
