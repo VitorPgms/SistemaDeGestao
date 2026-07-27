@@ -19,4 +19,15 @@ class MotivoSaida extends Model
     protected $casts = [
         'ativo' => 'boolean',
     ];
+
+    /**
+     * Motivo usado nos ajustes automáticos gerados pelo Inventário
+     * (App\Modules\Estoque\Services\EstoqueService::registrarAjusteInventario).
+     * Auto-criado se alguém apagar o registro semeado — o ajuste de estoque
+     * não pode falhar por causa de um cadastro de apoio ausente.
+     */
+    public static function ajusteInventario(): self
+    {
+        return self::query()->firstOrCreate(['nome' => 'Ajuste de Inventário']);
+    }
 }

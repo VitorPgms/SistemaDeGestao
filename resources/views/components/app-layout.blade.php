@@ -16,6 +16,7 @@
                         <a href="{{ route('entradas.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('entradas.*') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100' }}">Entradas</a>
                         <a href="{{ route('saidas.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('saidas.*') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100' }}">Saídas</a>
                         <a href="{{ route('estoque.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('estoque.*') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100' }}">Estoque</a>
+                        <a href="{{ route('inventarios.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('inventarios.*') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100' }}">Inventário</a>
                     </nav>
                 </div>
                 <div class="flex items-center gap-4 text-sm">

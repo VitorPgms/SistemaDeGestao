@@ -15,6 +15,7 @@ class MotivoSaidaSeeder extends Seeder
             'Dano/Quebra',
             'Devolução ao fornecedor',
             'Troca',
+            'Ajuste de Inventário',
         ];
 
         foreach ($motivos as $nome) {

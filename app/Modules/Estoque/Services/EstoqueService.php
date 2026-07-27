@@ -7,8 +7,10 @@ use App\Modules\Estoque\Enums\SituacaoEstoque;
 use App\Modules\Estoque\Exceptions\EstoqueInsuficienteException;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
+use App\Modules\Estoque\Models\MotivoSaida;
 use App\Modules\Estoque\Models\Saida;
 use App\Modules\Estoque\Notifications\EstoqueMinimoAtingido;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -70,6 +72,78 @@ class EstoqueService
             }
 
             return $saida;
+        });
+    }
+
+    /**
+     * Ajuste gerado por uma contagem de inventário (Módulo 5): aplica a
+     * diferença encontrada (pode ser positiva ou negativa) e registra o
+     * movimento correspondente com `origem` apontando para quem pediu o
+     * ajuste — sem depender do módulo de Inventário diretamente.
+     */
+    public function registrarAjusteInventario(
+        int $cdId,
+        int $produtoId,
+        ?int $produtoVariacaoId,
+        int $diferenca,
+        int $usuarioId,
+        Model $origem,
+    ): Entrada|Saida|null {
+        if ($diferenca === 0) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($cdId, $produtoId, $produtoVariacaoId, $diferenca, $usuarioId, $origem) {
+            $estoque = $this->localizarOuCriarEstoque($cdId, $produtoId, $produtoVariacaoId);
+            $situacaoAntes = $estoque->situacao();
+
+            $estoque->quantidade_atual = max(0, $estoque->quantidade_atual + $diferenca);
+
+            $dadosComuns = [
+                'cd_id' => $cdId,
+                'produto_id' => $produtoId,
+                'produto_variacao_id' => $produtoVariacaoId,
+                'quantidade' => abs($diferenca),
+                'registrado_por' => $usuarioId,
+                'origem_type' => $origem->getMorphClass(),
+                'origem_id' => $origem->getKey(),
+                'observacoes' => 'Ajuste gerado por contagem de inventário.',
+            ];
+
+            if ($diferenca > 0) {
+                $estoque->ultima_entrada_at = now();
+                $estoque->save();
+
+                $movimento = Entrada::create([
+                    ...$dadosComuns,
+                    'fornecedor_id' => null,
+                    'numero_nota_fiscal' => null,
+                    'data_compra' => now()->toDateString(),
+                    'data_entrega' => now()->toDateString(),
+                    'valor_unitario' => 0,
+                    'valor_total' => 0,
+                    'colaborador_recebimento_id' => null,
+                ]);
+            } else {
+                $estoque->ultima_saida_at = now();
+                $estoque->save();
+
+                $movimento = Saida::create([
+                    ...$dadosComuns,
+                    'colaborador_id' => null,
+                    'liberado_por' => $usuarioId,
+                    'motivo_saida_id' => MotivoSaida::ajusteInventario()->id,
+                    'status_colaborador_snapshot' => null,
+                    'data' => now()->toDateString(),
+                    'hora' => now()->format('H:i:s'),
+                ]);
+            }
+
+            if ($situacaoAntes !== SituacaoEstoque::Critico && $estoque->situacao() === SituacaoEstoque::Critico) {
+                $this->notificarEstoqueMinimo($estoque);
+            }
+
+            return $movimento;
         });
     }
 

@@ -49,7 +49,6 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Modules/Organizacional/Filament/Resources'), for: 'App\Modules\Organizacional\Filament\Resources')
             ->discoverResources(in: app_path('Modules/Estoque/Filament/Resources'), for: 'App\Modules\Estoque\Filament\Resources')
             ->discoverResources(in: app_path('Modules/Usuarios/Filament/Resources'), for: 'App\Modules\Usuarios\Filament\Resources')
-            ->discoverResources(in: app_path('Modules/Inventario/Filament/Resources'), for: 'App\Modules\Inventario\Filament\Resources')
             ->discoverResources(in: app_path('Modules/Configuracoes/Filament/Resources'), for: 'App\Modules\Configuracoes\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -82,6 +81,12 @@ class AdminPanelProvider extends PanelProvider
                     ->group('Operações')
                     ->sort(3)
                     ->visible(fn (): bool => auth()->user()?->can('estoque.view') ?? false),
+                NavigationItem::make('Inventário')
+                    ->url(fn (): string => route('inventarios.index'))
+                    ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                    ->group('Operações')
+                    ->sort(4)
+                    ->visible(fn (): bool => auth()->user()?->can('inventarios.view') ?? false),
             ])
             ->middleware([
                 EncryptCookies::class,
