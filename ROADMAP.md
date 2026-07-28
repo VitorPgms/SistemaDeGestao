@@ -48,13 +48,26 @@
 
 ✅ Regras de Negócio
 
-⬜ Revisão
 
 ---
 
 ## Módulo 7
 
-⬜ Fornecedores
+### Fornecedores
+
+✅ Migration
+
+✅ Model
+
+✅ Policy
+
+✅ Filament Resource
+
+✅ Seeder de Permissões
+
+✅ Testes
+
+✅ Regras de Negócio
 
 ---
 

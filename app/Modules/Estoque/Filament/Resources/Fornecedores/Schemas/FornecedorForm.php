@@ -3,6 +3,7 @@
 namespace App\Modules\Estoque\Filament\Resources\Fornecedores\Schemas;
 
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
@@ -29,6 +30,9 @@ class FornecedorForm
                 TextInput::make('nome_fantasia')
                     ->label('Nome fantasia')
                     ->maxLength(255),
+                TextInput::make('nome_responsavel')
+                    ->label('Nome do responsável')
+                    ->maxLength(255),
                 TextInput::make('cnpj')
                     ->label('CNPJ')
                     ->mask('99.999.999/9999-99')
@@ -43,8 +47,8 @@ class FornecedorForm
                 TextInput::make('email')
                     ->email()
                     ->maxLength(255),
-                TextInput::make('endereco')
-                    ->maxLength(255)
+                Textarea::make('observacoes')
+                    ->label('Observações')
                     ->columnSpanFull(),
                 Toggle::make('ativo')
                     ->default(true),

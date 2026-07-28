@@ -20,10 +20,11 @@ class Fornecedor extends Model
         'cd_id',
         'razao_social',
         'nome_fantasia',
+        'nome_responsavel',
         'cnpj',
         'telefone',
         'email',
-        'endereco',
+        'observacoes',
         'ativo',
     ];
 

@@ -34,6 +34,9 @@ class FornecedoresTable
                     ->searchable(),
                 TextColumn::make('telefone')
                     ->searchable(),
+                TextColumn::make('nome_responsavel')
+                    ->label('Responsável')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('ativo')
                     ->boolean(),
             ])
