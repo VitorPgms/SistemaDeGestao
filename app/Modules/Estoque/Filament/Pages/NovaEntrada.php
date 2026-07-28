@@ -4,8 +4,8 @@ namespace App\Modules\Estoque\Filament\Pages;
 
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Estoque\Support\VariacoesParaFormulario;
-use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
 use Filament\Pages\Page;
 
@@ -48,8 +48,8 @@ class NovaEntrada extends Page
                 ->where('ativo', true)
                 ->orderBy('razao_social')
                 ->get(['id', 'razao_social', 'cd_id']),
-            'colaboradores' => ($podeEscolherCd ? Colaborador::withoutGlobalScopes() : Colaborador::query())
-                ->where('status', 'ativo')
+            'responsaveisRecebimento' => ($podeEscolherCd ? ResponsavelRecebimento::withoutGlobalScopes() : ResponsavelRecebimento::query())
+                ->where('ativo', true)
                 ->orderBy('nome')
                 ->get(['id', 'nome', 'cd_id']),
         ];

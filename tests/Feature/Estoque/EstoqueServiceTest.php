@@ -7,8 +7,11 @@ use App\Modules\Estoque\Exceptions\EstoqueInsuficienteException;
 use App\Modules\Estoque\Models\Categoria;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
+use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Exceptions\EntradaCanceladaException;
 use App\Modules\Estoque\Models\MotivoSaida;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Estoque\Notifications\EstoqueMinimoAtingido;
 use App\Modules\Estoque\Services\EstoqueService;
 use App\Modules\Organizacional\Enums\StatusColaborador;
@@ -32,6 +35,8 @@ class EstoqueServiceTest extends TestCase
     private Fornecedor $fornecedor;
 
     private Colaborador $colaborador;
+
+    private ResponsavelRecebimento $responsavel;
 
     private MotivoSaida $motivo;
 
@@ -70,6 +75,8 @@ class EstoqueServiceTest extends TestCase
             'status' => StatusColaborador::Ativo,
         ]);
 
+        $this->responsavel = ResponsavelRecebimento::create(['cd_id' => $this->betim->id, 'nome' => 'Maria Recebimento']);
+
         $this->motivo = MotivoSaida::create(['nome' => 'Uso operacional']);
 
         $this->almoxarife = User::create([
@@ -95,7 +102,7 @@ class EstoqueServiceTest extends TestCase
             'quantidade' => $quantidade,
             'valor_unitario' => 89.90,
             'valor_total' => 89.90 * $quantidade,
-            'colaborador_recebimento_id' => $this->colaborador->id,
+            'responsavel_recebimento_id' => $this->responsavel->id,
             'registrado_por' => $this->almoxarife->id,
         ];
     }
@@ -196,5 +203,98 @@ class EstoqueServiceTest extends TestCase
         Notification::fake();
         $service->registrarSaida($this->dadosSaida(1));
         Notification::assertNothingSent();
+    }
+
+    public function test_atualizar_entrada_recalculates_stock_by_the_quantity_delta(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+
+        $service->atualizarEntrada($entrada, [
+            ...$this->dadosEntrada(18),
+            'valor_total' => 18 * 89.90,
+        ]);
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(18, $estoque->quantidade_atual);
+
+        $entrada->refresh();
+        $this->assertSame(18, $entrada->quantidade);
+    }
+
+    public function test_atualizar_entrada_blocks_when_a_later_saida_already_consumed_the_stock(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+        $service->registrarSaida($this->dadosSaida(8));
+
+        $this->expectException(EstoqueInsuficienteException::class);
+
+        $service->atualizarEntrada($entrada, $this->dadosEntrada(5));
+    }
+
+    public function test_atualizar_entrada_rejects_an_already_cancelled_entrada(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+        $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Nota fiscal cancelada');
+
+        $this->expectException(EntradaCanceladaException::class);
+
+        $service->atualizarEntrada($entrada, $this->dadosEntrada(5));
+    }
+
+    public function test_cancelar_entrada_reverts_stock_and_records_who_and_why(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+
+        $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Divergência na nota fiscal');
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(0, $estoque->quantidade_atual);
+
+        $entrada->refresh();
+        $this->assertSame(StatusEntrada::Cancelada, $entrada->status);
+        $this->assertSame('Divergência na nota fiscal', $entrada->motivo_cancelamento);
+        $this->assertSame($this->almoxarife->id, $entrada->cancelado_por);
+        $this->assertNotNull($entrada->cancelado_em);
+        $this->assertTrue($entrada->cancelado_em->isToday());
+    }
+
+    public function test_cancelar_entrada_blocks_when_a_later_saida_already_consumed_the_stock(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+        $service->registrarSaida($this->dadosSaida(7));
+
+        $this->expectException(EstoqueInsuficienteException::class);
+
+        $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Motivo qualquer');
+
+        $this->assertSame(3, Estoque::withoutGlobalScopes()->sole()->quantidade_atual);
+    }
+
+    public function test_cancelar_entrada_twice_is_rejected(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(10));
+        $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Primeiro cancelamento');
+
+        $this->expectException(EntradaCanceladaException::class);
+
+        $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Segundo cancelamento');
     }
 }

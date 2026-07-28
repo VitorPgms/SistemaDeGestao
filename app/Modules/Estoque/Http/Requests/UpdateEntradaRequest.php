@@ -8,13 +8,12 @@ use App\Modules\Estoque\Models\ProdutoVariacao;
 use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class StoreEntradaRequest extends FormRequest
+class UpdateEntradaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('create', Entrada::class);
+        return $this->user()->can('update', $this->route('entrada'));
     }
 
     /**
@@ -23,11 +22,6 @@ class StoreEntradaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cd_id' => [
-                Rule::requiredIf(fn () => $this->user()->can('acessar-todos-cds')),
-                'nullable',
-                'exists:centros_distribuicao,id',
-            ],
             'produto_id' => ['required', 'exists:produtos,id'],
             'produto_variacao_id' => ['nullable', 'exists:produto_variacoes,id'],
             'fornecedor_id' => ['required', 'exists:fornecedores,id'],
@@ -41,9 +35,13 @@ class StoreEntradaRequest extends FormRequest
         ];
     }
 
+    /**
+     * O CD de uma entrada nunca é editável — permanece o mesmo definido no
+     * registro original, para não permitir "transferir" o movimento entre CDs.
+     */
     public function resolvedCdId(): int
     {
-        return (int) ($this->input('cd_id') ?: $this->user()->cd_id);
+        return $this->route('entrada')->cd_id;
     }
 
     public function withValidator(ValidatorContract $validator): void
@@ -55,14 +53,14 @@ class StoreEntradaRequest extends FormRequest
                 $this->filled('fornecedor_id') &&
                 ! Fornecedor::withoutGlobalScopes()->where('id', $this->input('fornecedor_id'))->where('cd_id', $cdId)->exists()
             ) {
-                $validator->errors()->add('fornecedor_id', 'Este fornecedor não pertence ao Centro de Distribuição selecionado.');
+                $validator->errors()->add('fornecedor_id', 'Este fornecedor não pertence ao Centro de Distribuição da entrada.');
             }
 
             if (
                 $this->filled('responsavel_recebimento_id') &&
                 ! ResponsavelRecebimento::withoutGlobalScopes()->where('id', $this->input('responsavel_recebimento_id'))->where('cd_id', $cdId)->exists()
             ) {
-                $validator->errors()->add('responsavel_recebimento_id', 'Este responsável não pertence ao Centro de Distribuição selecionado.');
+                $validator->errors()->add('responsavel_recebimento_id', 'Este responsável não pertence ao Centro de Distribuição da entrada.');
             }
 
             if (

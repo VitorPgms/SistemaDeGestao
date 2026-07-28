@@ -24,4 +24,9 @@ class EntradaPolicy
     {
         return $user->can('entradas.manage');
     }
+
+    public function update(User $user, Entrada $entrada): bool
+    {
+        return $user->can('entradas.manage') && $this->pertenceAoCdDoUsuario($user, $entrada);
+    }
 }

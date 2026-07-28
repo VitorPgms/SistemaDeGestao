@@ -9,6 +9,7 @@ use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\MotivoSaida;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Estoque\Notifications\EstoqueMinimoAtingido;
 use App\Modules\Organizacional\Enums\StatusColaborador;
 use App\Modules\Organizacional\Models\Colaborador;
@@ -30,6 +31,8 @@ class DashboardHttpTest extends TestCase
     private Fornecedor $fornecedor;
 
     private Colaborador $colaborador;
+
+    private ResponsavelRecebimento $responsavel;
 
     private User $almoxarife;
 
@@ -71,6 +74,8 @@ class DashboardHttpTest extends TestCase
             'status' => StatusColaborador::Ativo,
         ]);
 
+        $this->responsavel = ResponsavelRecebimento::create(['cd_id' => $this->betim->id, 'nome' => 'Maria Recebimento']);
+
         MotivoSaida::create(['nome' => 'Uso operacional']);
 
         $this->almoxarife = User::create([
@@ -95,7 +100,7 @@ class DashboardHttpTest extends TestCase
             'data_entrega' => '2026-07-05',
             'quantidade' => 20,
             'valor_unitario' => '10.00',
-            'colaborador_recebimento_id' => $this->colaborador->id,
+            'responsavel_recebimento_id' => $this->responsavel->id,
         ]);
 
         $this->actingAs($this->almoxarife)->post(route('saidas.store'), [

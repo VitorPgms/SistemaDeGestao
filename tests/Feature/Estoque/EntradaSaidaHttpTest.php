@@ -8,11 +8,15 @@ use App\Modules\Estoque\Filament\Pages\EstoqueLista;
 use App\Modules\Estoque\Filament\Pages\NovaEntrada;
 use App\Modules\Estoque\Filament\Pages\NovaSaida;
 use App\Modules\Estoque\Filament\Pages\Saidas;
+use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Filament\Pages\EntradaEditar;
 use App\Modules\Estoque\Models\Categoria;
+use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\MotivoSaida;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Organizacional\Enums\StatusColaborador;
 use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
@@ -35,6 +39,8 @@ class EntradaSaidaHttpTest extends TestCase
     private Fornecedor $fornecedorBetim;
 
     private Colaborador $colaboradorBetim;
+
+    private ResponsavelRecebimento $responsavelBetim;
 
     private MotivoSaida $motivo;
 
@@ -80,6 +86,8 @@ class EntradaSaidaHttpTest extends TestCase
             'data_admissao' => '2024-01-01',
             'status' => StatusColaborador::Ativo,
         ]);
+
+        $this->responsavelBetim = ResponsavelRecebimento::create(['cd_id' => $this->betim->id, 'nome' => 'Maria Recebimento']);
 
         $this->motivo = MotivoSaida::create(['nome' => 'Uso operacional']);
 
@@ -127,7 +135,7 @@ class EntradaSaidaHttpTest extends TestCase
                 'data_entrega' => '2026-07-05',
                 'quantidade' => 20,
                 'valor_unitario' => '89.90',
-                'colaborador_recebimento_id' => $this->colaboradorBetim->id,
+                'responsavel_recebimento_id' => $this->responsavelBetim->id,
             ])
             ->assertRedirect(Entradas::getUrl());
 
@@ -147,7 +155,7 @@ class EntradaSaidaHttpTest extends TestCase
             'data_entrega' => '2026-07-05',
             'quantidade' => 20,
             'valor_unitario' => '89.90',
-            'colaborador_recebimento_id' => $this->colaboradorBetim->id,
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
         ]);
 
         $this->actingAs($this->almoxarife)
@@ -179,7 +187,7 @@ class EntradaSaidaHttpTest extends TestCase
             'data_entrega' => '2026-07-05',
             'quantidade' => 3,
             'valor_unitario' => '89.90',
-            'colaborador_recebimento_id' => $this->colaboradorBetim->id,
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
         ]);
 
         $this->actingAs($this->almoxarife)
@@ -210,7 +218,7 @@ class EntradaSaidaHttpTest extends TestCase
                 'data_entrega' => '2026-07-05',
                 'quantidade' => 10,
                 'valor_unitario' => '89.90',
-                'colaborador_recebimento_id' => $this->colaboradorBetim->id,
+                'responsavel_recebimento_id' => $this->responsavelBetim->id,
             ])
             ->assertSessionHasErrors('fornecedor_id');
     }
@@ -225,7 +233,7 @@ class EntradaSaidaHttpTest extends TestCase
             'data_entrega' => '2026-07-05',
             'quantidade' => 20,
             'valor_unitario' => '89.90',
-            'colaborador_recebimento_id' => $this->colaboradorBetim->id,
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
         ]);
 
         $estoque = Estoque::withoutGlobalScopes()->sole();
@@ -251,5 +259,164 @@ class EntradaSaidaHttpTest extends TestCase
         $this->assertSame(5, $estoque->quantidade_minima);
         $this->assertSame(30, $estoque->quantidade_ideal);
         $this->assertSame('Prateleira A12', $estoque->localizacao);
+    }
+
+    public function test_full_http_flow_updates_entrada_and_recalculates_stock_and_total(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $this->actingAs($this->almoxarife)
+            ->get(EntradaEditar::getUrl(['entrada' => $entrada]))
+            ->assertOk();
+
+        $this->actingAs($this->almoxarife)
+            ->put(route('entradas.update', $entrada), [
+                'produto_id' => $this->produto->id,
+                'fornecedor_id' => $this->fornecedorBetim->id,
+                'numero_nota_fiscal' => 'NF-001-B',
+                'data_compra' => '2026-07-01',
+                'data_entrega' => '2026-07-06',
+                'quantidade' => 12,
+                'valor_unitario' => '100.00',
+                'responsavel_recebimento_id' => $this->responsavelBetim->id,
+            ])
+            ->assertRedirect(Entradas::getUrl());
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(12, $estoque->quantidade_atual);
+
+        $entrada->refresh();
+        $this->assertSame('NF-001-B', $entrada->numero_nota_fiscal);
+        $this->assertEquals(1200, $entrada->valor_total);
+    }
+
+    public function test_full_http_flow_cancels_entrada_and_reverts_stock(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $this->actingAs($this->almoxarife)
+            ->post(route('entradas.cancelar', $entrada), [
+                'motivo_cancelamento' => 'Nota fiscal cancelada pelo fornecedor',
+            ])
+            ->assertRedirect(Entradas::getUrl());
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(0, $estoque->quantidade_atual);
+
+        $entrada->refresh();
+        $this->assertSame(StatusEntrada::Cancelada, $entrada->status);
+        $this->assertSame('Nota fiscal cancelada pelo fornecedor', $entrada->motivo_cancelamento);
+        $this->assertSame($this->almoxarife->id, $entrada->cancelado_por);
+    }
+
+    public function test_cancelling_an_entrada_requires_a_reason(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $this->actingAs($this->almoxarife)
+            ->post(route('entradas.cancelar', $entrada), [])
+            ->assertSessionHasErrors('motivo_cancelamento');
+
+        $this->assertSame(StatusEntrada::Ativa, $entrada->refresh()->status);
+    }
+
+    public function test_cancelling_an_entrada_already_partially_consumed_by_a_saida_is_blocked(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $this->actingAs($this->almoxarife)->post(route('saidas.store'), [
+            'produto_id' => $this->produto->id,
+            'quantidade' => 15,
+            'colaborador_id' => $this->colaboradorBetim->id,
+            'liberado_por' => $this->almoxarife->id,
+            'motivo_saida_id' => $this->motivo->id,
+            'data' => '2026-07-10',
+            'hora' => '14:30',
+        ]);
+
+        $this->actingAs($this->almoxarife)
+            ->post(route('entradas.cancelar', $entrada), [
+                'motivo_cancelamento' => 'Tentativa de cancelar após consumo',
+            ])
+            ->assertSessionHas('erro');
+
+        $this->assertSame(StatusEntrada::Ativa, $entrada->refresh()->status);
+        $this->assertSame(5, Estoque::withoutGlobalScopes()->sole()->quantidade_atual);
+    }
+
+    public function test_entradas_index_filters_by_numero_nota_fiscal_and_busca(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-100',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 10,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-200',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-06',
+            'quantidade' => 5,
+            'valor_unitario' => '50.00',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $response = $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl(['numero_nota_fiscal' => 'NF-100']))
+            ->assertOk();
+
+        $response->assertSee('NF-100');
+        $response->assertDontSee('NF-200');
     }
 }

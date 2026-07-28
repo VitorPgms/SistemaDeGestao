@@ -3,7 +3,7 @@
 namespace App\Modules\Estoque\Models;
 
 use App\Modules\Core\Concerns\BelongsToCd;
-use App\Modules\Organizacional\Models\Colaborador;
+use App\Modules\Estoque\Enums\StatusEntrada;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,8 +29,12 @@ class Entrada extends Model
         'quantidade',
         'valor_unitario',
         'valor_total',
-        'colaborador_recebimento_id',
+        'status',
+        'responsavel_recebimento_id',
         'observacoes',
+        'motivo_cancelamento',
+        'cancelado_por',
+        'cancelado_em',
         'registrado_por',
         'origem_type',
         'origem_id',
@@ -42,6 +46,8 @@ class Entrada extends Model
         'quantidade' => 'integer',
         'valor_unitario' => 'decimal:2',
         'valor_total' => 'decimal:2',
+        'status' => StatusEntrada::class,
+        'cancelado_em' => 'datetime',
     ];
 
     public function produto(): BelongsTo
@@ -59,14 +65,19 @@ class Entrada extends Model
         return $this->belongsTo(Fornecedor::class);
     }
 
-    public function colaboradorRecebimento(): BelongsTo
+    public function responsavelRecebimento(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class, 'colaborador_recebimento_id');
+        return $this->belongsTo(ResponsavelRecebimento::class);
     }
 
     public function registradoPor(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'registrado_por');
+    }
+
+    public function canceladoPor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'cancelado_por');
     }
 
     public function getActivitylogOptions(): LogOptions

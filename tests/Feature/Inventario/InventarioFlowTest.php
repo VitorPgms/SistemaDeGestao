@@ -10,6 +10,7 @@ use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Estoque\Models\Saida;
 use App\Modules\Estoque\Services\EstoqueService;
 use App\Modules\Inventario\Enums\StatusInventario;
@@ -36,6 +37,8 @@ class InventarioFlowTest extends TestCase
     private Fornecedor $fornecedor;
 
     private Colaborador $colaborador;
+
+    private ResponsavelRecebimento $responsavel;
 
     private User $almoxarife;
 
@@ -80,6 +83,8 @@ class InventarioFlowTest extends TestCase
             'status' => StatusColaborador::Ativo,
         ]);
 
+        $this->responsavel = ResponsavelRecebimento::create(['cd_id' => $this->betim->id, 'nome' => 'Maria Recebimento']);
+
         $this->almoxarife = User::create([
             'name' => 'Almoxarife',
             'email' => 'almoxarife@teste.local',
@@ -110,7 +115,7 @@ class InventarioFlowTest extends TestCase
             'quantidade' => 20,
             'valor_unitario' => 89.90,
             'valor_total' => 1798.00,
-            'colaborador_recebimento_id' => $this->colaborador->id,
+            'responsavel_recebimento_id' => $this->responsavel->id,
             'registrado_por' => $this->almoxarife->id,
         ]);
 
@@ -157,7 +162,7 @@ class InventarioFlowTest extends TestCase
             'quantidade' => 10,
             'valor_unitario' => 50,
             'valor_total' => 500,
-            'colaborador_recebimento_id' => $this->colaborador->id,
+            'responsavel_recebimento_id' => $this->responsavel->id,
             'registrado_por' => $this->almoxarife->id,
         ]);
 
@@ -207,7 +212,7 @@ class InventarioFlowTest extends TestCase
             'quantidade' => 10,
             'valor_unitario' => 50,
             'valor_total' => 500,
-            'colaborador_recebimento_id' => $this->colaborador->id,
+            'responsavel_recebimento_id' => $this->responsavel->id,
             'registrado_por' => $this->almoxarife->id,
         ]);
 

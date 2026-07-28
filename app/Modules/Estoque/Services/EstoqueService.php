@@ -4,6 +4,8 @@ namespace App\Modules\Estoque\Services;
 
 use App\Models\User;
 use App\Modules\Estoque\Enums\SituacaoEstoque;
+use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Exceptions\EntradaCanceladaException;
 use App\Modules\Estoque\Exceptions\EstoqueInsuficienteException;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
@@ -38,6 +40,61 @@ class EstoqueService
             $estoque->quantidade_atual += $entrada->quantidade;
             $estoque->ultima_entrada_at = now();
             $estoque->save();
+
+            return $entrada;
+        });
+    }
+
+    /**
+     * Recalcula o estoque para refletir a entrada editada: reverte a
+     * quantidade antiga do produto/variação originais e aplica a nova
+     * quantidade ao produto/variação atuais (podem ser os mesmos).
+     *
+     * @throws EntradaCanceladaException
+     * @throws EstoqueInsuficienteException
+     */
+    public function atualizarEntrada(Entrada $entrada, array $dados): Entrada
+    {
+        if ($entrada->status === StatusEntrada::Cancelada) {
+            throw new EntradaCanceladaException;
+        }
+
+        return DB::transaction(function () use ($entrada, $dados) {
+            $this->reverterQuantidade($entrada->cd_id, $entrada->produto_id, $entrada->produto_variacao_id, $entrada->quantidade);
+
+            $estoque = $this->localizarOuCriarEstoque($entrada->cd_id, $dados['produto_id'], $dados['produto_variacao_id'] ?? null);
+            $estoque->quantidade_atual += $dados['quantidade'];
+            $estoque->ultima_entrada_at = now();
+            $estoque->save();
+
+            $entrada->update($dados);
+
+            return $entrada;
+        });
+    }
+
+    /**
+     * Cancela a entrada e remove a quantidade correspondente do estoque.
+     * Não exclui o registro — mantém o histórico com o motivo e quem cancelou.
+     *
+     * @throws EntradaCanceladaException
+     * @throws EstoqueInsuficienteException
+     */
+    public function cancelarEntrada(Entrada $entrada, int $usuarioId, string $motivo): Entrada
+    {
+        if ($entrada->status === StatusEntrada::Cancelada) {
+            throw new EntradaCanceladaException;
+        }
+
+        return DB::transaction(function () use ($entrada, $usuarioId, $motivo) {
+            $this->reverterQuantidade($entrada->cd_id, $entrada->produto_id, $entrada->produto_variacao_id, $entrada->quantidade);
+
+            $entrada->update([
+                'status' => StatusEntrada::Cancelada,
+                'motivo_cancelamento' => $motivo,
+                'cancelado_por' => $usuarioId,
+                'cancelado_em' => now(),
+            ]);
 
             return $entrada;
         });
@@ -122,7 +179,7 @@ class EstoqueService
                     'data_entrega' => now()->toDateString(),
                     'valor_unitario' => 0,
                     'valor_total' => 0,
-                    'colaborador_recebimento_id' => null,
+                    'responsavel_recebimento_id' => null,
                 ]);
             } else {
                 $estoque->ultima_saida_at = now();
@@ -145,6 +202,21 @@ class EstoqueService
 
             return $movimento;
         });
+    }
+
+    /**
+     * @throws EstoqueInsuficienteException
+     */
+    private function reverterQuantidade(int $cdId, int $produtoId, ?int $produtoVariacaoId, int $quantidade): void
+    {
+        $estoque = $this->localizarOuCriarEstoque($cdId, $produtoId, $produtoVariacaoId);
+
+        if ($estoque->quantidade_atual < $quantidade) {
+            throw new EstoqueInsuficienteException($estoque->quantidade_atual, $quantidade);
+        }
+
+        $estoque->quantidade_atual -= $quantidade;
+        $estoque->save();
     }
 
     private function localizarOuCriarEstoque(int $cdId, int $produtoId, ?int $produtoVariacaoId): Estoque
