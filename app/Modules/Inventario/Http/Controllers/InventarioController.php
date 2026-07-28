@@ -4,11 +4,11 @@ namespace App\Modules\Inventario\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Inventario\Exceptions\InventarioIncompletoException;
+use App\Modules\Inventario\Filament\Pages\Inventarios;
+use App\Modules\Inventario\Filament\Pages\InventarioDetalhe;
 use App\Modules\Inventario\Http\Requests\StoreInventarioRequest;
 use App\Modules\Inventario\Models\Inventario;
 use App\Modules\Inventario\Services\InventarioService;
-use App\Modules\Organizacional\Models\CentroDistribuicao;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,32 +17,6 @@ class InventarioController extends Controller
 {
     public function __construct(private readonly InventarioService $inventarioService)
     {
-    }
-
-    public function index(): View
-    {
-        $this->authorize('viewAny', Inventario::class);
-
-        $inventarios = Inventario::query()
-            ->with(['responsavel', 'centroDistribuicao'])
-            ->withCount('itens')
-            ->latest('data_contagem')
-            ->paginate(20);
-
-        return view('inventarios.index', ['inventarios' => $inventarios]);
-    }
-
-    public function create(): View
-    {
-        $this->authorize('create', Inventario::class);
-
-        $user = Auth::user();
-        $podeEscolherCd = $user->can('acessar-todos-cds');
-
-        return view('inventarios.create', [
-            'podeEscolherCd' => $podeEscolherCd,
-            'centrosDistribuicao' => $podeEscolherCd ? CentroDistribuicao::query()->orderBy('nome')->pluck('nome', 'id') : collect(),
-        ]);
     }
 
     public function store(StoreInventarioRequest $request): RedirectResponse
@@ -54,20 +28,8 @@ class InventarioController extends Controller
             $request->input('observacoes'),
         );
 
-        return redirect()->route('inventarios.show', $inventario)
+        return redirect(InventarioDetalhe::getUrl(['inventario' => $inventario]))
             ->with('sucesso', 'Inventário aberto. Registre a contagem física de cada item.');
-    }
-
-    public function show(Inventario $inventario): View
-    {
-        $this->authorize('view', $inventario);
-
-        $itens = $inventario->itens()->with(['produto', 'produtoVariacao'])->orderBy('produto_id')->get();
-
-        return view('inventarios.show', [
-            'inventario' => $inventario,
-            'itens' => $itens,
-        ]);
     }
 
     public function salvarContagem(Request $request, Inventario $inventario): RedirectResponse
@@ -94,7 +56,7 @@ class InventarioController extends Controller
             return back()->with('erro', $exception->getMessage());
         }
 
-        return redirect()->route('inventarios.show', $inventario)
+        return redirect(InventarioDetalhe::getUrl(['inventario' => $inventario]))
             ->with('sucesso', 'Inventário finalizado. Estoque ajustado conforme a contagem.');
     }
 
@@ -104,6 +66,6 @@ class InventarioController extends Controller
 
         $this->inventarioService->cancelar($inventario);
 
-        return redirect()->route('inventarios.index')->with('sucesso', 'Inventário cancelado.');
+        return redirect(Inventarios::getUrl())->with('sucesso', 'Inventário cancelado.');
     }
 }

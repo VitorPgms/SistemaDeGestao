@@ -3,6 +3,8 @@
 namespace Tests\Feature\Inventario;
 
 use App\Models\User;
+use App\Modules\Inventario\Filament\Pages\InventarioDetalhe;
+use App\Modules\Inventario\Filament\Pages\Inventarios as InventariosPage;
 use App\Modules\Estoque\Models\Categoria;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
@@ -214,7 +216,7 @@ class InventarioFlowTest extends TestCase
         $item = $inventario->itens()->sole();
 
         $this->put(route('inventarios.contagem', $inventario), ['quantidades' => [$item->id => 999]]);
-        $this->post(route('inventarios.cancelar', $inventario))->assertRedirect(route('inventarios.index'));
+        $this->post(route('inventarios.cancelar', $inventario))->assertRedirect(InventariosPage::getUrl());
 
         $inventario->refresh();
         $this->assertSame(StatusInventario::Cancelado, $inventario->status);
@@ -242,7 +244,7 @@ class InventarioFlowTest extends TestCase
         // CdScope esconde o registro de outro CD antes mesmo da Policy rodar,
         // então a resposta correta é 404 (não revela nem que o registro existe).
         $this->actingAs($usuarioGoiania)
-            ->get(route('inventarios.show', $inventario))
+            ->get(InventarioDetalhe::getUrl(['inventario' => $inventario]))
             ->assertNotFound();
     }
 }

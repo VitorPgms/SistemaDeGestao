@@ -1,8 +1,4 @@
-<x-app-layout title="Editar Parâmetros de Estoque">
-    <x-page-heading :description="$estoque->produto->nome . ($estoque->produtoVariacao ? ' (' . $estoque->produtoVariacao->valor . ')' : '')">
-        Parâmetros de Estoque
-    </x-page-heading>
-
+<div>
     <x-card class="max-w-xl">
         <form method="POST" action="{{ route('estoque.update', $estoque) }}" class="space-y-6">
             @csrf
@@ -27,9 +23,9 @@
             </div>
 
             <div class="flex justify-end gap-3 border-t border-gray-200 pt-6">
-                <x-button as="a" href="{{ route('estoque.index') }}" variant="secondary">Cancelar</x-button>
+                <x-button as="a" href="{{ \App\Modules\Estoque\Filament\Pages\EstoqueLista::getUrl() }}" wire:navigate variant="secondary">Cancelar</x-button>
                 <x-button type="submit">Salvar</x-button>
             </div>
         </form>
     </x-card>
-</x-app-layout>
+</div>

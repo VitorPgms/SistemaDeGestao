@@ -1,16 +1,12 @@
-<x-app-layout title="Saídas">
-    <x-page-heading description="Histórico de retiradas de mercadoria.">
-        Saídas
-
-        <x-slot name="actions">
-            @can('create', \App\Modules\Estoque\Models\Saida::class)
-                <x-button as="a" href="{{ route('saidas.create') }}">Nova Saída</x-button>
-            @endcan
-        </x-slot>
-    </x-page-heading>
+<div>
+    <div class="flex justify-end mb-4">
+        @can('create', \App\Modules\Estoque\Models\Saida::class)
+            <x-button as="a" href="{{ \App\Modules\Estoque\Filament\Pages\NovaSaida::getUrl() }}" wire:navigate>Nova Saída</x-button>
+        @endcan
+    </div>
 
     <x-card class="mb-6">
-        <form method="GET" action="{{ route('saidas.index') }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <form method="GET" action="{{ \App\Modules\Estoque\Filament\Pages\Saidas::getUrl() }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
             <div>
                 <x-input-label for="produto_id">Produto</x-input-label>
                 <x-select-input id="produto_id" name="produto_id" :options="$produtos" placeholder="Todos" :selected="request('produto_id')" />
@@ -74,4 +70,4 @@
     <div class="mt-6">
         {{ $saidas->links() }}
     </div>
-</x-app-layout>
+</div>

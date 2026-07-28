@@ -2,27 +2,23 @@
     $emAndamento = $inventario->status === \App\Modules\Inventario\Enums\StatusInventario::EmAndamento;
 @endphp
 
-<x-app-layout title="Inventário #{{ $inventario->id }}">
-    <x-page-heading :description="'Aberto em ' . $inventario->data_contagem->format('d/m/Y') . ' por ' . $inventario->responsavel->name">
-        Inventário #{{ $inventario->id }}
+<div>
+    <div class="flex items-center justify-end gap-3 mb-4">
+        <x-badge :color="$inventario->status->getColor()">{{ $inventario->status->getLabel() }}</x-badge>
 
-        <x-slot name="actions">
-            <x-badge :color="$inventario->status->getColor()">{{ $inventario->status->getLabel() }}</x-badge>
-
-            @can('update', $inventario)
-                @if ($emAndamento)
-                    <form method="POST" action="{{ route('inventarios.cancelar', $inventario) }}" onsubmit="return confirm('Cancelar este inventário? Nenhum ajuste será aplicado.');">
-                        @csrf
-                        <x-button type="submit" variant="secondary">Cancelar Inventário</x-button>
-                    </form>
-                    <form method="POST" action="{{ route('inventarios.finalizar', $inventario) }}" onsubmit="return confirm('Finalizar o inventário aplica os ajustes de estoque para todos os itens com divergência. Confirma?');">
-                        @csrf
-                        <x-button type="submit">Finalizar e Ajustar Estoque</x-button>
-                    </form>
-                @endif
-            @endcan
-        </x-slot>
-    </x-page-heading>
+        @can('update', $inventario)
+            @if ($emAndamento)
+                <form method="POST" action="{{ route('inventarios.cancelar', $inventario) }}" onsubmit="return confirm('Cancelar este inventário? Nenhum ajuste será aplicado.');">
+                    @csrf
+                    <x-button type="submit" variant="secondary">Cancelar Inventário</x-button>
+                </form>
+                <form method="POST" action="{{ route('inventarios.finalizar', $inventario) }}" onsubmit="return confirm('Finalizar o inventário aplica os ajustes de estoque para todos os itens com divergência. Confirma?');">
+                    @csrf
+                    <x-button type="submit">Finalizar e Ajustar Estoque</x-button>
+                </form>
+            @endif
+        @endcan
+    </div>
 
     @if ($inventario->observacoes)
         <x-card class="mb-6">
@@ -90,4 +86,4 @@
             @endcan
         @endif
     </form>
-</x-app-layout>
+</div>

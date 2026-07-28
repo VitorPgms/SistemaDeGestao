@@ -3,6 +3,11 @@
 namespace Tests\Feature\Estoque;
 
 use App\Models\User;
+use App\Modules\Estoque\Filament\Pages\Entradas;
+use App\Modules\Estoque\Filament\Pages\EstoqueLista;
+use App\Modules\Estoque\Filament\Pages\NovaEntrada;
+use App\Modules\Estoque\Filament\Pages\NovaSaida;
+use App\Modules\Estoque\Filament\Pages\Saidas;
 use App\Modules\Estoque\Models\Categoria;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
@@ -90,11 +95,11 @@ class EntradaSaidaHttpTest extends TestCase
 
     public function test_almoxarife_can_view_the_entradas_and_saidas_pages(): void
     {
-        $this->actingAs($this->almoxarife)->get(route('entradas.index'))->assertOk();
-        $this->actingAs($this->almoxarife)->get(route('entradas.create'))->assertOk();
-        $this->actingAs($this->almoxarife)->get(route('saidas.index'))->assertOk();
-        $this->actingAs($this->almoxarife)->get(route('saidas.create'))->assertOk();
-        $this->actingAs($this->almoxarife)->get(route('estoque.index'))->assertOk();
+        $this->actingAs($this->almoxarife)->get(Entradas::getUrl())->assertOk();
+        $this->actingAs($this->almoxarife)->get(NovaEntrada::getUrl())->assertOk();
+        $this->actingAs($this->almoxarife)->get(Saidas::getUrl())->assertOk();
+        $this->actingAs($this->almoxarife)->get(NovaSaida::getUrl())->assertOk();
+        $this->actingAs($this->almoxarife)->get(EstoqueLista::getUrl())->assertOk();
     }
 
     public function test_consulta_cannot_reach_the_entrada_creation_form(): void
@@ -108,7 +113,7 @@ class EntradaSaidaHttpTest extends TestCase
         ]);
         $consulta->assignRole('consulta');
 
-        $this->actingAs($consulta)->get(route('entradas.create'))->assertForbidden();
+        $this->actingAs($consulta)->get(NovaEntrada::getUrl())->assertForbidden();
     }
 
     public function test_full_http_flow_creates_entrada_and_updates_stock(): void
@@ -124,7 +129,7 @@ class EntradaSaidaHttpTest extends TestCase
                 'valor_unitario' => '89.90',
                 'colaborador_recebimento_id' => $this->colaboradorBetim->id,
             ])
-            ->assertRedirect(route('entradas.index'));
+            ->assertRedirect(Entradas::getUrl());
 
         $estoque = Estoque::withoutGlobalScopes()->sole();
 
@@ -155,7 +160,7 @@ class EntradaSaidaHttpTest extends TestCase
                 'data' => '2026-07-10',
                 'hora' => '14:30',
             ])
-            ->assertRedirect(route('saidas.index'));
+            ->assertRedirect(Saidas::getUrl());
 
         $estoque = Estoque::withoutGlobalScopes()->sole();
         $this->assertSame(15, $estoque->quantidade_atual);
@@ -240,7 +245,7 @@ class EntradaSaidaHttpTest extends TestCase
                 'quantidade_ideal' => 30,
                 'localizacao' => 'Prateleira A12',
             ])
-            ->assertRedirect(route('estoque.index'));
+            ->assertRedirect(EstoqueLista::getUrl());
 
         $estoque->refresh();
         $this->assertSame(5, $estoque->quantidade_minima);

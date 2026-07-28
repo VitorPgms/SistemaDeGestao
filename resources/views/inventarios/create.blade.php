@@ -1,8 +1,4 @@
-<x-app-layout title="Novo Inventário">
-    <x-page-heading description="Ao abrir, o sistema tira um retrato da quantidade atual de todos os produtos ativos do CD para comparar com a contagem física.">
-        Novo Inventário
-    </x-page-heading>
-
+<div>
     <x-card class="max-w-xl">
         <form method="POST" action="{{ route('inventarios.store') }}" class="space-y-6">
             @csrf
@@ -28,9 +24,9 @@
             </div>
 
             <div class="flex justify-end gap-3 border-t border-gray-200 pt-6">
-                <x-button as="a" href="{{ route('inventarios.index') }}" variant="secondary">Cancelar</x-button>
+                <x-button as="a" href="{{ \App\Modules\Inventario\Filament\Pages\Inventarios::getUrl() }}" wire:navigate variant="secondary">Cancelar</x-button>
                 <x-button type="submit">Abrir Inventário</x-button>
             </div>
         </form>
     </x-card>
-</x-app-layout>
+</div>

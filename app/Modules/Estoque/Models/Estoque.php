@@ -4,6 +4,7 @@ namespace App\Modules\Estoque\Models;
 
 use App\Modules\Core\Concerns\BelongsToCd;
 use App\Modules\Estoque\Enums\SituacaoEstoque;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -71,5 +72,24 @@ class Estoque extends Model
         }
 
         return SituacaoEstoque::Normal;
+    }
+
+    /**
+     * Mesma regra usada em situacao(), como scope de query para os
+     * indicadores do Dashboard (contagem sem carregar todos os registros).
+     */
+    public function scopeCritico(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('quantidade_minima', '>', 0)->orWhere('quantidade_ideal', '>', 0);
+        })->whereColumn('quantidade_atual', '<=', 'quantidade_minima');
+    }
+
+    public function scopeAtencao(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('quantidade_minima', '>', 0)->orWhere('quantidade_ideal', '>', 0);
+        })->whereColumn('quantidade_atual', '>', 'quantidade_minima')
+            ->whereColumn('quantidade_atual', '<', 'quantidade_ideal');
     }
 }

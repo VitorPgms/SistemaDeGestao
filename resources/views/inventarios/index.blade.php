@@ -1,13 +1,9 @@
-<x-app-layout title="Inventário">
-    <x-page-heading description="Contagens físicas de estoque, em andamento e concluídas.">
-        Inventário
-
-        <x-slot name="actions">
-            @can('create', \App\Modules\Inventario\Models\Inventario::class)
-                <x-button as="a" href="{{ route('inventarios.create') }}">Novo Inventário</x-button>
-            @endcan
-        </x-slot>
-    </x-page-heading>
+<div>
+    <div class="flex justify-end mb-4">
+        @can('create', \App\Modules\Inventario\Models\Inventario::class)
+            <x-button as="a" href="{{ \App\Modules\Inventario\Filament\Pages\NovoInventario::getUrl() }}" wire:navigate>Novo Inventário</x-button>
+        @endcan
+    </div>
 
     <x-card class="!p-0">
         <div class="overflow-x-auto">
@@ -37,7 +33,7 @@
                                 <x-badge :color="$inventario->status->getColor()">{{ $inventario->status->getLabel() }}</x-badge>
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <a href="{{ route('inventarios.show', $inventario) }}" class="text-gray-500 hover:text-gray-900">Abrir</a>
+                                <a href="{{ \App\Modules\Inventario\Filament\Pages\InventarioDetalhe::getUrl(['inventario' => $inventario]) }}" wire:navigate class="text-gray-500 hover:text-gray-900">Abrir</a>
                             </td>
                         </tr>
                     @empty
@@ -53,4 +49,4 @@
     <div class="mt-6">
         {{ $inventarios->links() }}
     </div>
-</x-app-layout>
+</div>

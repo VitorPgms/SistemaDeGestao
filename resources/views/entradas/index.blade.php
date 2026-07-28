@@ -1,16 +1,12 @@
-<x-app-layout title="Entradas">
-    <x-page-heading description="Histórico de recebimentos de mercadoria.">
-        Entradas
-
-        <x-slot name="actions">
-            @can('create', \App\Modules\Estoque\Models\Entrada::class)
-                <x-button as="a" href="{{ route('entradas.create') }}">Nova Entrada</x-button>
-            @endcan
-        </x-slot>
-    </x-page-heading>
+<div>
+    <div class="flex justify-end mb-4">
+        @can('create', \App\Modules\Estoque\Models\Entrada::class)
+            <x-button as="a" href="{{ \App\Modules\Estoque\Filament\Pages\NovaEntrada::getUrl() }}" wire:navigate>Nova Entrada</x-button>
+        @endcan
+    </div>
 
     <x-card class="mb-6">
-        <form method="GET" action="{{ route('entradas.index') }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <form method="GET" action="{{ \App\Modules\Estoque\Filament\Pages\Entradas::getUrl() }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
             <div>
                 <x-input-label for="produto_id">Produto</x-input-label>
                 <x-select-input id="produto_id" name="produto_id" :options="$produtos" placeholder="Todos" :selected="request('produto_id')" />
@@ -76,4 +72,4 @@
     <div class="mt-6">
         {{ $entradas->links() }}
     </div>
-</x-app-layout>
+</div>

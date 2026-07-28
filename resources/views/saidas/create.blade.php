@@ -1,8 +1,4 @@
-<x-app-layout title="Nova Saída">
-    <x-page-heading description="Registrar a retirada de mercadoria e atualizar o estoque automaticamente.">
-        Nova Saída
-    </x-page-heading>
-
+<div>
     <x-card>
         <form method="POST" action="{{ route('saidas.store') }}" id="form-saida" class="space-y-6">
             @csrf
@@ -87,12 +83,13 @@
             </div>
 
             <div class="flex justify-end gap-3 border-t border-gray-200 pt-6">
-                <x-button as="a" href="{{ route('saidas.index') }}" variant="secondary">Cancelar</x-button>
+                <x-button as="a" href="{{ \App\Modules\Estoque\Filament\Pages\Saidas::getUrl() }}" wire:navigate variant="secondary">Cancelar</x-button>
                 <x-button type="submit">Registrar Saída</x-button>
             </div>
         </form>
     </x-card>
 
+    @script
     <script>
         (function () {
             const produtos = @json($produtosJson);
@@ -152,4 +149,5 @@
             @endif
         })();
     </script>
-</x-app-layout>
+    @endscript
+</div>
