@@ -378,17 +378,18 @@ class EntradaSaidaHttpTest extends TestCase
             'hora' => '14:30',
         ]);
 
-        $this->actingAs($this->almoxarife)
+        $response = $this->actingAs($this->almoxarife)
             ->post(route('entradas.cancelar', $entrada), [
                 'motivo_cancelamento' => 'Tentativa de cancelar após consumo',
-            ])
-            ->assertSessionHas('erro');
+            ]);
+
+        $this->assertNotEmpty($response->getSession()->get('filament.notifications'));
 
         $this->assertSame(StatusEntrada::Ativa, $entrada->refresh()->status);
         $this->assertSame(5, Estoque::withoutGlobalScopes()->sole()->quantidade_atual);
     }
 
-    public function test_entradas_index_filters_by_numero_nota_fiscal_and_busca(): void
+    public function test_entradas_index_filters_by_numero_nota_fiscal(): void
     {
         $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
             'produto_id' => $this->produto->id,
@@ -418,5 +419,118 @@ class EntradaSaidaHttpTest extends TestCase
 
         $response->assertSee('NF-100');
         $response->assertDontSee('NF-200');
+    }
+
+    public function test_entradas_index_hides_cancelled_entries_by_default_and_shows_details_via_status_filter(): void
+    {
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.cancelar', $entrada), [
+            'motivo_cancelamento' => 'Divergência na nota fiscal',
+        ]);
+
+        $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl())
+            ->assertOk()
+            ->assertDontSee('NF-001');
+
+        $response = $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl(['status' => 'cancelada']))
+            ->assertOk();
+
+        $response->assertSee('NF-001');
+        $response->assertSee('Cancelada');
+        $response->assertSee('Divergência na nota fiscal');
+        $response->assertSee($this->almoxarife->name);
+
+        $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl(['status' => 'todas']))
+            ->assertOk()
+            ->assertSee('NF-001');
+    }
+
+    public function test_entradas_index_advanced_filters_by_categoria_fornecedor_and_responsavel(): void
+    {
+        $outroFornecedor = Fornecedor::create(['cd_id' => $this->betim->id, 'razao_social' => 'Outro Fornecedor']);
+        $outroResponsavel = ResponsavelRecebimento::create(['cd_id' => $this->betim->id, 'nome' => 'Outro Responsável']);
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 10,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $outroFornecedor->id,
+            'numero_nota_fiscal' => 'NF-002',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 10,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $outroResponsavel->id,
+        ]);
+
+        $response = $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl(['fornecedor_id' => $this->fornecedorBetim->id]))
+            ->assertOk();
+        $response->assertSee('NF-001');
+        $response->assertDontSee('NF-002');
+
+        $response = $this->actingAs($this->almoxarife)
+            ->get(Entradas::getUrl(['responsavel_recebimento_id' => $outroResponsavel->id]))
+            ->assertOk();
+        $response->assertSee('NF-002');
+        $response->assertDontSee('NF-001');
+    }
+
+    public function test_notifications_are_sent_after_registering_updating_and_cancelling_an_entrada(): void
+    {
+        $storeResponse = $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 10,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+        $this->assertNotEmpty($storeResponse->getSession()->get('filament.notifications'));
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+
+        $updateResponse = $this->actingAs($this->almoxarife)->put(route('entradas.update', $entrada), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 12,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+        $this->assertNotEmpty($updateResponse->getSession()->get('filament.notifications'));
+
+        $cancelResponse = $this->actingAs($this->almoxarife)->post(route('entradas.cancelar', $entrada), [
+            'motivo_cancelamento' => 'Motivo de teste',
+        ]);
+        $this->assertNotEmpty($cancelResponse->getSession()->get('filament.notifications'));
     }
 }

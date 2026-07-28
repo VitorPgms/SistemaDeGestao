@@ -11,6 +11,7 @@ use App\Modules\Estoque\Http\Requests\StoreEntradaRequest;
 use App\Modules\Estoque\Http\Requests\UpdateEntradaRequest;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Services\EstoqueService;
+use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,7 +45,9 @@ class EntradaController extends Controller
             'registrado_por' => Auth::id(),
         ]);
 
-        return redirect(Entradas::getUrl())->with('sucesso', 'Entrada registrada e estoque atualizado com sucesso.');
+        Notification::make()->title('Entrada registrada com sucesso.')->success()->send();
+
+        return redirect(Entradas::getUrl());
     }
 
     public function update(UpdateEntradaRequest $request, Entrada $entrada): RedirectResponse
@@ -67,10 +70,14 @@ class EntradaController extends Controller
                 'observacoes' => $request->input('observacoes'),
             ]);
         } catch (EntradaCanceladaException|EstoqueInsuficienteException $exception) {
-            return back()->withInput()->with('erro', $exception->getMessage());
+            Notification::make()->title($exception->getMessage())->danger()->send();
+
+            return back()->withInput();
         }
 
-        return redirect(Entradas::getUrl())->with('sucesso', 'Entrada atualizada e estoque recalculado com sucesso.');
+        Notification::make()->title('Entrada atualizada com sucesso.')->success()->send();
+
+        return redirect(Entradas::getUrl());
     }
 
     public function cancelar(Request $request, Entrada $entrada): RedirectResponse
@@ -84,9 +91,13 @@ class EntradaController extends Controller
         try {
             $this->estoqueService->cancelarEntrada($entrada, Auth::id(), $dados['motivo_cancelamento']);
         } catch (EntradaCanceladaException|EstoqueInsuficienteException $exception) {
-            return back()->with('erro', $exception->getMessage());
+            Notification::make()->title($exception->getMessage())->danger()->send();
+
+            return back();
         }
 
-        return redirect(Entradas::getUrl())->with('sucesso', 'Entrada cancelada e estoque atualizado com sucesso.');
+        Notification::make()->title('Entrada cancelada com sucesso.')->success()->send();
+
+        return redirect(Entradas::getUrl());
     }
 }

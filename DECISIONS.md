@@ -78,6 +78,20 @@ Um Setor não pode ser desativado enquanto possuir colaboradores ativos vinculad
 
 ---
 
+## Entradas — UX
+
+Filtros em dois níveis: rápidos (Produto, Período, Nº da NF) sempre visíveis; avançados (Categoria, Fornecedor, Responsável pelo Recebimento, Status, CD) atrás de um botão "Mais filtros", usando Alpine.js só para mostrar/esconder (nenhuma regra de negócio no JS). O painel avançado abre sozinho quando a página recarrega com algum desses filtros preenchidos, para o usuário não perder de vista um filtro já aplicado.
+
+Cancelamento de Entrada passou a ter confirmação em duas etapas (motivo obrigatório → confirmação final) via um modal Alpine.js, no lugar do `confirm()` do navegador. Continua sendo o mesmo POST/Controller/Service de sempre — só a camada de confirmação no cliente mudou.
+
+Notificações de sucesso/erro do módulo passaram a usar `Filament\Notifications\Notification::make()->send()` a partir do Controller (Blade comum, sem Livewire) em vez do banner `session('sucesso')/session('erro')`. Isso funciona porque o componente `Filament\Livewire\Notifications` já vem embutido no layout base do painel — só reaproveita o listener que já existe, sem infraestrutura nova. Os demais módulos continuam no banner `<x-alert>`/`session('sucesso')` até decidirmos migrar.
+
+Motivo: pedido explícito de UX só para Entradas — não é para replicar nos outros módulos ainda. Revisar quando os próximos módulos (Saídas, Estoque) forem retrabalhados, para decidir se esse padrão vira o padrão geral do sistema.
+
+**Importante — build do front-end:** este ambiente não tem Node/npm instalado, e `public/build/` é um bundle Tailwind pré-compilado que não é regerado automaticamente. Qualquer classe Tailwind usada pela primeira vez em uma tela nova (que ainda não apareça em nenhum outro Blade já existente) não vai existir no CSS compilado até alguém rodar `npm run build` numa máquina com Node. O modal de cancelamento deste módulo foi escrito com um pequeno bloco `<style>` próprio (classes `cancelamento-modal-*`), em vez de utilitários Tailwind, exatamente para não depender desse rebuild. Ao criar novas telas com elementos visuais que não existem em nenhuma tela atual (modais, overlays, etc.), usar o mesmo caminho — CSS escrito à mão — ou confirmar antes que o build será atualizado.
+
+---
+
 ## Filosofia
 
 Sempre escolher a solução mais simples.

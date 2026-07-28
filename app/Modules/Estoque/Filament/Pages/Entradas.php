@@ -2,10 +2,12 @@
 
 namespace App\Modules\Estoque\Filament\Pages;
 
+use App\Modules\Estoque\Enums\StatusEntrada;
 use App\Modules\Estoque\Models\Categoria;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\ResponsavelRecebimento;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -51,20 +53,16 @@ class Entradas extends Page
     {
         $user = auth()->user();
         $podeEscolherCd = $user->can('acessar-todos-cds');
+        $status = request()->input('status', 'ativa');
 
         $entradas = Entrada::query()
-            ->with(['produto', 'produtoVariacao', 'fornecedor', 'centroDistribuicao'])
-            ->when(request()->filled('busca'), function ($query) {
-                $busca = request()->input('busca');
-
-                $query->where(function ($query) use ($busca) {
-                    $query->where('numero_nota_fiscal', 'like', "%{$busca}%")
-                        ->orWhereHas('produto', fn ($query) => $query->where('nome', 'like', "%{$busca}%"));
-                });
-            })
+            ->with(['produto', 'produtoVariacao', 'fornecedor', 'responsavelRecebimento', 'canceladoPor', 'centroDistribuicao'])
+            ->when($status === 'ativa', fn ($query) => $query->where('status', StatusEntrada::Ativa))
+            ->when($status === 'cancelada', fn ($query) => $query->where('status', StatusEntrada::Cancelada))
             ->when(request()->filled('produto_id'), fn ($query) => $query->where('produto_id', request()->input('produto_id')))
             ->when(request()->filled('categoria_id'), fn ($query) => $query->whereHas('produto', fn ($query) => $query->where('categoria_id', request()->input('categoria_id'))))
             ->when(request()->filled('fornecedor_id'), fn ($query) => $query->where('fornecedor_id', request()->input('fornecedor_id')))
+            ->when(request()->filled('responsavel_recebimento_id'), fn ($query) => $query->where('responsavel_recebimento_id', request()->input('responsavel_recebimento_id')))
             ->when($podeEscolherCd && request()->filled('cd_id'), fn ($query) => $query->where('cd_id', request()->input('cd_id')))
             ->when(request()->filled('numero_nota_fiscal'), fn ($query) => $query->where('numero_nota_fiscal', 'like', '%'.request()->input('numero_nota_fiscal').'%'))
             ->when(request()->filled('data_inicio'), fn ($query) => $query->whereDate('data_entrega', '>=', request()->input('data_inicio')))
@@ -78,8 +76,10 @@ class Entradas extends Page
             'produtos' => Produto::query()->orderBy('nome')->pluck('nome', 'id'),
             'categorias' => Categoria::query()->orderBy('nome')->pluck('nome', 'id'),
             'fornecedores' => ($podeEscolherCd ? Fornecedor::withoutGlobalScopes() : Fornecedor::query())->orderBy('razao_social')->pluck('razao_social', 'id'),
+            'responsaveisRecebimento' => ($podeEscolherCd ? ResponsavelRecebimento::withoutGlobalScopes() : ResponsavelRecebimento::query())->orderBy('nome')->pluck('nome', 'id'),
             'centrosDistribuicao' => $podeEscolherCd ? CentroDistribuicao::query()->orderBy('nome')->pluck('nome', 'id') : collect(),
             'podeEscolherCd' => $podeEscolherCd,
+            'statusOptions' => ['ativa' => 'Ativas', 'cancelada' => 'Canceladas', 'todas' => 'Todas'],
         ];
     }
 }
