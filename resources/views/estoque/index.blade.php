@@ -6,6 +6,14 @@
                 <x-select-input id="produto_id" name="produto_id" :options="$produtos" placeholder="Todos" :selected="request('produto_id')" />
             </div>
             <div>
+                <x-input-label for="data_inicio">Período - De</x-input-label>
+                <x-text-input type="date" id="data_inicio" name="data_inicio" :value="$dataInicio" />
+            </div>
+            <div>
+                <x-input-label for="data_fim">Período - Até</x-input-label>
+                <x-text-input type="date" id="data_fim" name="data_fim" :value="$dataFim" />
+            </div>
+            <div>
                 <x-button type="submit" variant="secondary" class="w-full">Filtrar</x-button>
             </div>
         </form>
@@ -23,6 +31,8 @@
                         <th class="px-6 py-3 text-right">Atual</th>
                         <th class="px-6 py-3 text-right">Mínimo</th>
                         <th class="px-6 py-3 text-right">Ideal</th>
+                        <th class="px-6 py-3 text-right">Comprado no Período</th>
+                        <th class="px-6 py-3 text-right">Saída no Período</th>
                         <th class="px-6 py-3">Última Entrada</th>
                         <th class="px-6 py-3">Última Saída</th>
                         <th class="px-6 py-3">Fornecedor</th>
@@ -45,6 +55,8 @@
                             <td class="px-6 py-3 text-right text-gray-900">{{ $estoque->quantidade_atual }}</td>
                             <td class="px-6 py-3 text-right text-gray-600">{{ $estoque->quantidade_minima }}</td>
                             <td class="px-6 py-3 text-right text-gray-600">{{ $estoque->quantidade_ideal }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900">{{ $estoque->total_entradas_periodo }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900">{{ $estoque->total_saidas_periodo }}</td>
                             <td class="px-6 py-3 text-gray-600">{{ $estoque->ultima_entrada_at?->format('d/m/Y H:i') ?? '—' }}</td>
                             <td class="px-6 py-3 text-gray-600">{{ $estoque->ultima_saida_at?->format('d/m/Y H:i') ?? '—' }}</td>
                             <td class="px-6 py-3 text-gray-600">{{ $estoque->fornecedorPreferencial?->razao_social ?? '—' }}</td>
@@ -59,7 +71,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">Nenhum estoque registrado ainda.</td>
+                            <td colspan="11" class="px-6 py-8 text-center text-gray-500">Nenhum estoque registrado ainda.</td>
                         </tr>
                     @endforelse
                 </tbody>

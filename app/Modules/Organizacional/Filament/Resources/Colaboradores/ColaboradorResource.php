@@ -5,6 +5,8 @@ namespace App\Modules\Organizacional\Filament\Resources\Colaboradores;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\CreateColaborador;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\EditColaborador;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\ListColaboradores;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\RelationManagers\AtividadesRelationManager;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\RelationManagers\SaidasRelationManager;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Schemas\ColaboradorForm;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Tables\ColaboradoresTable;
 use App\Modules\Organizacional\Models\Colaborador;
@@ -43,7 +45,8 @@ class ColaboradorResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            SaidasRelationManager::class,
+            AtividadesRelationManager::class,
         ];
     }
 

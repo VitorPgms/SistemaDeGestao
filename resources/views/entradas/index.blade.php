@@ -220,7 +220,12 @@ estão no bundle atual, então continuam normalmente. --}}
                                 @endif
                             </td>
                             <td class="px-6 py-3 text-gray-600">{{ $entrada->fornecedor?->razao_social }}</td>
-                            <td class="px-6 py-3 text-gray-600">{{ $entrada->numero_nota_fiscal }}</td>
+                            <td class="px-6 py-3 text-gray-600">
+                                {{ $entrada->numero_nota_fiscal }}
+                                @if ($entrada->hasMedia(\App\Modules\Estoque\Models\Entrada::COLECAO_NOTA_FISCAL))
+                                    <a href="{{ $entrada->getFirstMediaUrl(\App\Modules\Estoque\Models\Entrada::COLECAO_NOTA_FISCAL) }}" target="_blank" class="block text-xs font-medium text-gray-900 hover:underline">Ver anexo</a>
+                                @endif
+                            </td>
                             <td class="px-6 py-3 text-gray-600">{{ $entrada->data_entrega->format('d/m/Y') }}</td>
                             <td class="px-6 py-3 text-right text-gray-900">{{ $entrada->quantidade }}</td>
                             <td class="px-6 py-3 text-right text-gray-900">R$ {{ number_format($entrada->valor_total, 2, ',', '.') }}</td>

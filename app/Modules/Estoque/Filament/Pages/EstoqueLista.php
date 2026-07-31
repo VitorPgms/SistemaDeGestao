@@ -4,6 +4,7 @@ namespace App\Modules\Estoque\Filament\Pages;
 
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Services\EstoqueService;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -46,6 +47,9 @@ class EstoqueLista extends Page
      */
     protected function getViewData(): array
     {
+        $dataInicio = request()->input('data_inicio') ?: now()->startOfMonth()->toDateString();
+        $dataFim = request()->input('data_fim') ?: now()->toDateString();
+
         $estoques = Estoque::query()
             ->with(['produto', 'produtoVariacao', 'centroDistribuicao', 'fornecedorPreferencial'])
             ->when(request()->filled('produto_id'), fn ($query) => $query->where('produto_id', request()->input('produto_id')))
@@ -53,9 +57,13 @@ class EstoqueLista extends Page
             ->paginate(20)
             ->withQueryString();
 
+        app(EstoqueService::class)->anexarTotaisDoPeriodo($estoques, $dataInicio, $dataFim);
+
         return [
             'estoques' => $estoques,
             'produtos' => Produto::query()->orderBy('nome')->pluck('nome', 'id'),
+            'dataInicio' => $dataInicio,
+            'dataFim' => $dataFim,
         ];
     }
 }

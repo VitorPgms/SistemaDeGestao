@@ -3,13 +3,24 @@
 namespace Tests\Feature\Organizacional;
 
 use App\Models\User;
+use App\Modules\Estoque\Enums\StatusSaida;
+use App\Modules\Estoque\Models\Categoria;
+use App\Modules\Estoque\Models\MotivoSaida;
+use App\Modules\Estoque\Models\Produto;
+use App\Modules\Estoque\Models\Saida;
 use App\Modules\Organizacional\Enums\StatusColaborador;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\ColaboradorResource;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\CreateColaborador;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\EditColaborador;
 use App\Modules\Organizacional\Filament\Resources\Colaboradores\Pages\ListColaboradores;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\RelationManagers\AtividadesRelationManager;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\RelationManagers\SaidasRelationManager;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
 use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\Setor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -211,5 +222,117 @@ class ColaboradorResourceTest extends TestCase
             'data_admissao' => '2024-01-10',
             'status' => StatusColaborador::Ativo,
         ]);
+    }
+
+    private function criarColaborador(?string $dataProximoExame): Colaborador
+    {
+        return Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorBetim->id,
+            'nome' => 'Carlos',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Ativo,
+            'data_proximo_exame_periodico' => $dataProximoExame,
+        ]);
+    }
+
+    public function test_status_exame_periodico_is_null_when_no_date_is_set(): void
+    {
+        $colaborador = $this->criarColaborador(null);
+
+        $this->assertNull($colaborador->statusExamePeriodico());
+    }
+
+    public function test_status_exame_periodico_is_vencido_when_date_is_past(): void
+    {
+        $colaborador = $this->criarColaborador(now()->subDay()->toDateString());
+
+        $this->assertSame('vencido', $colaborador->statusExamePeriodico());
+    }
+
+    public function test_status_exame_periodico_is_proximo_within_alert_window(): void
+    {
+        $colaborador = $this->criarColaborador(now()->addDays(Colaborador::DIAS_ALERTA_EXAME_PERIODICO)->toDateString());
+
+        $this->assertSame('proximo', $colaborador->statusExamePeriodico());
+    }
+
+    public function test_status_exame_periodico_is_normal_outside_alert_window(): void
+    {
+        $colaborador = $this->criarColaborador(now()->addDays(Colaborador::DIAS_ALERTA_EXAME_PERIODICO + 1)->toDateString());
+
+        $this->assertSame('normal', $colaborador->statusExamePeriodico());
+    }
+
+    public function test_documento_attachment_is_stored_in_the_documentos_collection(): void
+    {
+        Storage::fake('public');
+
+        $supervisor = $this->userComPapel('supervisor', $this->betim);
+        $this->actingAs($supervisor);
+
+        Livewire::test(CreateColaborador::class)
+            ->fillForm([
+                'setor_id' => $this->setorBetim->id,
+                'nome' => 'Fernanda',
+                'funcao' => 'Auxiliar',
+                'data_admissao' => '2024-03-01',
+                'status' => StatusColaborador::Ativo->value,
+                'documentos' => [UploadedFile::fake()->createWithContent('rg.pdf', "%PDF-1.4\n%%EOF")],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $colaborador = Colaborador::query()->where('nome', 'Fernanda')->firstOrFail();
+
+        $this->assertCount(1, $colaborador->getMedia(Colaborador::COLECAO_DOCUMENTOS));
+    }
+
+    public function test_edit_page_shows_linked_saidas_and_activity_log_history(): void
+    {
+        $supervisor = $this->userComPapel('supervisor', $this->betim);
+        $this->actingAs($supervisor);
+
+        $colaborador = $this->criarColaborador(null);
+
+        $colaborador->update(['funcao' => 'Auxiliar Sênior']);
+
+        $categoria = Categoria::create(['nome' => 'EPI']);
+        $produto = Produto::create([
+            'categoria_id' => $categoria->id,
+            'nome' => 'Luva de Segurança',
+            'codigo_interno' => 'LUV-001',
+            'unidade' => 'PAR',
+            'status' => 'ativo',
+        ]);
+        $motivo = MotivoSaida::create(['nome' => 'Uso operacional']);
+
+        Saida::create([
+            'cd_id' => $this->betim->id,
+            'produto_id' => $produto->id,
+            'produto_variacao_id' => null,
+            'quantidade' => 3,
+            'colaborador_id' => $colaborador->id,
+            'liberado_por' => $supervisor->id,
+            'motivo_saida_id' => $motivo->id,
+            'status_colaborador_snapshot' => StatusColaborador::Ativo,
+            'data' => '2026-07-10',
+            'hora' => '10:00',
+            'registrado_por' => $supervisor->id,
+            'status' => StatusSaida::Ativa,
+        ]);
+
+        $this->get(ColaboradorResource::getUrl('edit', ['record' => $colaborador]))->assertOk();
+
+        Livewire::test(SaidasRelationManager::class, [
+            'ownerRecord' => $colaborador,
+            'pageClass' => EditColaborador::class,
+        ])->assertSee('Luva de Segurança');
+
+        Livewire::test(AtividadesRelationManager::class, [
+            'ownerRecord' => $colaborador,
+            'pageClass' => EditColaborador::class,
+        ])->assertSee('Atualizado');
     }
 }

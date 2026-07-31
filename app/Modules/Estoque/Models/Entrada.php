@@ -9,12 +9,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Entrada extends Model
+class Entrada extends Model implements HasMedia
 {
     use BelongsToCd;
     use HasFactory;
+    use InteractsWithMedia;
     use LogsActivity;
+
+    public const COLECAO_NOTA_FISCAL = 'nota_fiscal';
 
     protected $table = 'entradas';
 
@@ -86,5 +91,12 @@ class Entrada extends Model
             ->logOnlyDirty()
             ->logFillable()
             ->useLogName('estoque');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::COLECAO_NOTA_FISCAL)
+            ->singleFile()
+            ->acceptsMimeTypes(['application/pdf', 'image/jpeg', 'image/png']);
     }
 }

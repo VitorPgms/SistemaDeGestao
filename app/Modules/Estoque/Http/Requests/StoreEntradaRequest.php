@@ -38,6 +38,7 @@ class StoreEntradaRequest extends FormRequest
             'valor_unitario' => ['required', 'numeric', 'min:0'],
             'responsavel_recebimento_id' => ['required', 'exists:responsaveis_recebimento,id'],
             'observacoes' => ['nullable', 'string'],
+            'nota_fiscal_anexo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ];
     }
 

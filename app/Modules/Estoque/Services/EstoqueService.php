@@ -48,9 +48,18 @@ class EstoqueService
     }
 
     /**
-     * Recalcula o estoque para refletir a entrada editada: reverte a
-     * quantidade antiga do produto/variação originais e aplica a nova
-     * quantidade ao produto/variação atuais (podem ser os mesmos).
+     * Recalcula o estoque para refletir a entrada editada.
+     *
+     * Quando produto/variação não mudam (caso comum), aplica só a diferença
+     * entre a quantidade nova e a antiga, bloqueando apenas se essa diferença
+     * não couber no saldo atual. Isso evita falso bloqueio quando o estoque
+     * agregado do produto já caiu abaixo da quantidade antiga desta Entrada
+     * por causa de Saídas — o que não impede reverter/reaplicar o valor
+     * total, mas não impede aplicar só a diferença, se ela couber.
+     *
+     * Quando produto/variação mudam, mantém o comportamento anterior: reverte
+     * a quantidade antiga do produto/variação originais e aplica a nova
+     * quantidade ao produto/variação novos.
      *
      * @throws EntradaCanceladaException
      * @throws EstoqueInsuficienteException
@@ -62,10 +71,27 @@ class EstoqueService
         }
 
         return DB::transaction(function () use ($entrada, $dados) {
-            $this->reverterQuantidade($entrada->cd_id, $entrada->produto_id, $entrada->produto_variacao_id, $entrada->quantidade);
+            $produtoVariacaoIdNovo = filled($dados['produto_variacao_id'] ?? null) ? (int) $dados['produto_variacao_id'] : null;
+            $produtoVariacaoIdAntigo = filled($entrada->produto_variacao_id) ? (int) $entrada->produto_variacao_id : null;
+            $produtoMudou = (int) $dados['produto_id'] !== (int) $entrada->produto_id
+                || $produtoVariacaoIdNovo !== $produtoVariacaoIdAntigo;
 
-            $estoque = $this->localizarOuCriarEstoque($entrada->cd_id, $dados['produto_id'], $dados['produto_variacao_id'] ?? null);
-            $estoque->quantidade_atual += $dados['quantidade'];
+            if ($produtoMudou) {
+                $this->reverterQuantidade($entrada->cd_id, $entrada->produto_id, $entrada->produto_variacao_id, $entrada->quantidade);
+
+                $estoque = $this->localizarOuCriarEstoque($entrada->cd_id, $dados['produto_id'], $produtoVariacaoIdNovo);
+                $estoque->quantidade_atual += $dados['quantidade'];
+            } else {
+                $estoque = $this->localizarOuCriarEstoque($entrada->cd_id, $entrada->produto_id, $entrada->produto_variacao_id);
+                $diferenca = $dados['quantidade'] - $entrada->quantidade;
+
+                if ($diferenca < 0 && $estoque->quantidade_atual < abs($diferenca)) {
+                    throw new EstoqueInsuficienteException($estoque->quantidade_atual, abs($diferenca));
+                }
+
+                $estoque->quantidade_atual += $diferenca;
+            }
+
             $estoque->ultima_entrada_at = now();
             $estoque->save();
 
@@ -263,6 +289,51 @@ class EstoqueService
 
             return $movimento;
         });
+    }
+
+    /**
+     * Anexa a cada item de $estoques os totais movimentados no período
+     * informado, como atributos dinâmicos (não persistidos):
+     * `total_entradas_periodo` e `total_saidas_periodo`.
+     *
+     * Considera somente Entradas/Saídas com status Ativa e exclui os
+     * registros originados por ajuste de inventário (`origem_type` não nulo).
+     */
+    public function anexarTotaisDoPeriodo(iterable $estoques, string $dataInicio, string $dataFim): void
+    {
+        $itens = [...$estoques];
+
+        if ($itens === []) {
+            return;
+        }
+
+        $totalEntradas = Entrada::query()
+            ->withoutGlobalScopes()
+            ->where('status', StatusEntrada::Ativa)
+            ->whereNull('origem_type')
+            ->whereDate('data_entrega', '>=', $dataInicio)
+            ->whereDate('data_entrega', '<=', $dataFim)
+            ->selectRaw('cd_id, produto_id, produto_variacao_id, SUM(quantidade) as total')
+            ->groupBy('cd_id', 'produto_id', 'produto_variacao_id')
+            ->get()
+            ->keyBy(fn ($linha) => "{$linha->cd_id}-{$linha->produto_id}-{$linha->produto_variacao_id}");
+
+        $totalSaidas = Saida::query()
+            ->withoutGlobalScopes()
+            ->where('status', StatusSaida::Ativa)
+            ->whereNull('origem_type')
+            ->whereDate('data', '>=', $dataInicio)
+            ->whereDate('data', '<=', $dataFim)
+            ->selectRaw('cd_id, produto_id, produto_variacao_id, SUM(quantidade) as total')
+            ->groupBy('cd_id', 'produto_id', 'produto_variacao_id')
+            ->get()
+            ->keyBy(fn ($linha) => "{$linha->cd_id}-{$linha->produto_id}-{$linha->produto_variacao_id}");
+
+        foreach ($itens as $estoque) {
+            $chave = "{$estoque->cd_id}-{$estoque->produto_id}-{$estoque->produto_variacao_id}";
+            $estoque->total_entradas_periodo = (int) ($totalEntradas->get($chave)->total ?? 0);
+            $estoque->total_saidas_periodo = (int) ($totalSaidas->get($chave)->total ?? 0);
+        }
     }
 
     /**

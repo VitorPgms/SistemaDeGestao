@@ -94,6 +94,56 @@ Motivo: pedido explícito de UX só para Entradas — não é para replicar nos 
 
 ---
 
+## Estoque — Correção: edição de Entrada bloqueada indevidamente
+
+`EstoqueService::atualizarEntrada()` revertia sempre a quantidade **antiga** inteira da Entrada antes de aplicar a nova. Como a reversão usa o estoque agregado do produto/CD (não um saldo por Entrada), qualquer Saída que já tivesse consumido estoque suficiente para deixar o total abaixo da quantidade antiga bloqueava **qualquer** edição dessa Entrada — mesmo aumentando a quantidade, ou só alterando um campo não relacionado (ex: anexar a Nota Fiscal), mesmo quando a edição era perfeitamente válida.
+
+Corrigido para aplicar apenas a diferença (quantidade nova − antiga) quando produto/variação não mudam, bloqueando somente quando essa diferença não cabe no saldo atual. Quando produto/variação mudam, mantém o comportamento anterior (reverte tudo do produto antigo, aplica tudo no produto novo).
+
+Motivo: bug relatado pelo usuário ao tentar editar uma Entrada após uma Saída ter consumido parte do estoque. Testes de regressão em `EstoqueServiceTest`.
+
+---
+
+## PGR
+
+Ainda não implementado. Quando for implementado, o PGR será vinculado ao Centro de Distribuição, e não ao colaborador.
+
+Nenhuma migration ou código para PGR foi criado até o momento — esta seção registra apenas a decisão de vínculo para quando a funcionalidade for de fato implementada.
+
+---
+
+## Colaborador — Histórico
+
+O histórico individual do colaborador não vincula Entradas (o modelo de Responsável pelo Recebimento das Entradas não foi alterado). Ele mostra:
+
+- Saídas de produtos vinculadas ao colaborador (`Colaborador::saidas()`), somente leitura;
+- Alterações cadastrais registradas pelo Activity Log (`Colaborador::activities()`, já fornecido pelo `LogsActivity`), somente leitura.
+
+Implementado como dois RelationManagers (`SaidasRelationManager`, `AtividadesRelationManager`) na tela de edição do `ColaboradorResource`, sem tela nova nem módulo novo.
+
+---
+
+## Colaborador — Exame Periódico
+
+Aviso de exame periódico é calculado sob demanda a partir de `data_proximo_exame_periodico` (sem Scheduler/Cron/Job): `Colaborador::statusExamePeriodico()` retorna `vencido`, `proximo` (dentro de `Colaborador::DIAS_ALERTA_EXAME_PERIODICO`, 30 dias) ou `normal`, exibido como badge colorido na listagem. Não há notificação persistente para isso.
+
+---
+
+## Documentos
+
+Não existe módulo de Documentos. Arquivos ficam vinculados ao registro correspondente via o Media Library já usado pelo Produto (`spatie/laravel-medialibrary`):
+
+- Colaborador: coleção `documentos` (múltiplos arquivos, PDF/JPEG/PNG), anexável no próprio cadastro;
+- Entrada: coleção `nota_fiscal` (arquivo único, PDF/JPEG/PNG), anexável no formulário de Entrada. O anexo permanece vinculado à Entrada mesmo após edição ou cancelamento — só é substituído quando um novo arquivo é enviado.
+
+---
+
+## Estoque — Quanto foi comprado
+
+Nenhuma tabela nova. `EstoqueService::anexarTotaisDoPeriodo()` soma `quantidade` de Entradas e Saídas com status Ativa dentro do período informado, excluindo registros originados por ajuste de inventário (`origem_type` não nulo — preenchido só pelo fluxo de ajuste em `EstoqueService::registrarAjusteInventario`). Exibido na listagem de Estoque (`EstoqueLista`) junto com um filtro de período (padrão: mês atual).
+
+---
+
 ## Filosofia
 
 Sempre escolher a solução mais simples.

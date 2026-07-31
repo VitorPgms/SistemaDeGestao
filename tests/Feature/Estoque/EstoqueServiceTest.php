@@ -237,6 +237,48 @@ class EstoqueServiceTest extends TestCase
         $service->atualizarEntrada($entrada, $this->dadosEntrada(5));
     }
 
+    /**
+     * Regressão: antes, editar uma Entrada sempre revertia a quantidade
+     * ANTIGA inteira antes de aplicar a nova, então qualquer edição (mesmo
+     * sem mexer na quantidade, ou aumentando-a) falhava se uma Saída
+     * qualquer já tivesse consumido estoque suficiente para deixar o total
+     * abaixo da quantidade antiga desta Entrada. A correção aplica só a
+     * diferença quando produto/variação não mudam.
+     */
+    public function test_atualizar_entrada_with_unchanged_quantity_succeeds_even_after_partial_consumption(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(100));
+        $service->registrarSaida($this->dadosSaida(2));
+
+        $service->atualizarEntrada($entrada, [
+            ...$this->dadosEntrada(100),
+            'observacoes' => 'Nota fiscal anexada',
+        ]);
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(98, $estoque->quantidade_atual);
+    }
+
+    public function test_atualizar_entrada_increasing_quantity_succeeds_even_after_partial_consumption(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        $entrada = $service->registrarEntrada($this->dadosEntrada(100));
+        $service->registrarSaida($this->dadosSaida(2));
+
+        $service->atualizarEntrada($entrada, [
+            ...$this->dadosEntrada(105),
+            'valor_total' => 105 * 89.90,
+        ]);
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+        $this->assertSame(103, $estoque->quantidade_atual);
+    }
+
     public function test_atualizar_entrada_rejects_an_already_cancelled_entrada(): void
     {
         $this->actingAs($this->almoxarife);
@@ -296,5 +338,45 @@ class EstoqueServiceTest extends TestCase
         $this->expectException(EntradaCanceladaException::class);
 
         $service->cancelarEntrada($entrada, $this->almoxarife->id, 'Segundo cancelamento');
+    }
+
+    public function test_anexar_totais_do_periodo_sums_only_active_movements_excluding_adjustments_and_outside_period(): void
+    {
+        $this->actingAs($this->almoxarife);
+        $service = app(EstoqueService::class);
+
+        // Entrada ativa dentro do período: entra na soma.
+        $service->registrarEntrada($this->dadosEntrada(10));
+
+        // Entrada ativa fora do período: não deve entrar na soma.
+        $service->registrarEntrada([
+            ...$this->dadosEntrada(999),
+            'data_compra' => '2026-01-01',
+            'data_entrega' => '2026-01-02',
+        ]);
+
+        // Saída ativa dentro do período: entra na soma.
+        $service->registrarSaida($this->dadosSaida(4));
+
+        // Entrada cancelada dentro do período: não deve entrar na soma.
+        $entradaCancelada = $service->registrarEntrada($this->dadosEntrada(7));
+        $service->cancelarEntrada($entradaCancelada, $this->almoxarife->id, 'Motivo de teste');
+
+        // Ajuste de inventário (origem_type preenchido): não deve entrar na soma.
+        \App\Modules\Estoque\Models\Entrada::create([
+            ...$this->dadosEntrada(50),
+            'fornecedor_id' => null,
+            'numero_nota_fiscal' => null,
+            'responsavel_recebimento_id' => null,
+            'origem_type' => 'ajuste-inventario-teste',
+            'origem_id' => 1,
+        ]);
+
+        $estoque = Estoque::withoutGlobalScopes()->sole();
+
+        $service->anexarTotaisDoPeriodo([$estoque], '2026-07-01', '2026-07-31');
+
+        $this->assertSame(10, $estoque->total_entradas_periodo);
+        $this->assertSame(4, $estoque->total_saidas_periodo);
     }
 }

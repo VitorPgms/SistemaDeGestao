@@ -1,6 +1,6 @@
 <div>
     <x-card>
-        <form method="POST" action="{{ route('entradas.update', $entrada) }}" id="form-entrada" class="space-y-6">
+        <form method="POST" action="{{ route('entradas.update', $entrada) }}" id="form-entrada" class="space-y-6" enctype="multipart/form-data">
             @csrf
             @method('PUT')
 
@@ -75,6 +75,19 @@
                     <x-input-label for="valor_unitario" required>Valor Unitário (R$)</x-input-label>
                     <x-text-input type="number" min="0" step="0.01" id="valor_unitario" name="valor_unitario" :value="old('valor_unitario', $entrada->valor_unitario)" />
                     <x-input-error name="valor_unitario" />
+                </div>
+
+                <div>
+                    <x-input-label for="nota_fiscal_anexo">Anexo da Nota Fiscal (PDF ou imagem)</x-input-label>
+                    @if ($entrada->hasMedia(\App\Modules\Estoque\Models\Entrada::COLECAO_NOTA_FISCAL))
+                        <p class="text-sm text-gray-600 mb-1">
+                            Anexo atual:
+                            <a href="{{ $entrada->getFirstMediaUrl(\App\Modules\Estoque\Models\Entrada::COLECAO_NOTA_FISCAL) }}" target="_blank" class="font-medium text-gray-900 hover:underline">{{ $entrada->getFirstMedia(\App\Modules\Estoque\Models\Entrada::COLECAO_NOTA_FISCAL)->file_name }}</a>
+                            — envie um novo arquivo abaixo para substituí-lo.
+                        </p>
+                    @endif
+                    <input type="file" id="nota_fiscal_anexo" name="nota_fiscal_anexo" accept="application/pdf,image/jpeg,image/png" class="block w-full text-sm text-gray-900 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium" />
+                    <x-input-error name="nota_fiscal_anexo" />
                 </div>
             </div>
 

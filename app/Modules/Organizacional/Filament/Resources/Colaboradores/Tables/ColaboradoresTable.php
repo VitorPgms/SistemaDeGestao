@@ -3,6 +3,7 @@
 namespace App\Modules\Organizacional\Filament\Resources\Colaboradores\Tables;
 
 use App\Modules\Organizacional\Enums\StatusColaborador;
+use App\Modules\Organizacional\Models\Colaborador;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -40,6 +41,17 @@ class ColaboradoresTable
                     ->date('d/m/Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('data_proximo_exame_periodico')
+                    ->label('Próximo Exame Periódico')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->badge()
+                    ->color(fn (?Colaborador $record): string => match ($record?->statusExamePeriodico()) {
+                        'vencido' => 'danger',
+                        'proximo' => 'warning',
+                        'normal' => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('status')
                     ->badge(),
             ])

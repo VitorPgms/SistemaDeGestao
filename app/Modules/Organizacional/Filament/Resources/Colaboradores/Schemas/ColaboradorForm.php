@@ -3,10 +3,13 @@
 namespace App\Modules\Organizacional\Filament\Resources\Colaboradores\Schemas;
 
 use App\Modules\Organizacional\Enums\StatusColaborador;
+use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\Setor;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
@@ -45,9 +48,16 @@ class ColaboradorForm
                 TextInput::make('nome')
                     ->required()
                     ->maxLength(255),
+                DatePicker::make('data_nascimento')
+                    ->label('Data de nascimento')
+                    ->native(false)
+                    ->maxDate(now()),
                 TextInput::make('funcao')
                     ->label('Função')
                     ->required()
+                    ->maxLength(255),
+                TextInput::make('tamanho_vestimenta')
+                    ->label('Tamanho de vestimenta')
                     ->maxLength(255),
                 DatePicker::make('data_admissao')
                     ->label('Data de admissão')
@@ -60,11 +70,29 @@ class ColaboradorForm
                     ->afterOrEqual('data_admissao')
                     ->requiredIf('status', StatusColaborador::Inativo->value)
                     ->prohibitedUnless('status', StatusColaborador::Inativo->value),
+                DatePicker::make('data_ultimo_exame_periodico')
+                    ->label('Data do último exame periódico')
+                    ->native(false)
+                    ->maxDate(now()),
+                DatePicker::make('data_proximo_exame_periodico')
+                    ->label('Data do próximo exame periódico')
+                    ->native(false),
                 Select::make('status')
                     ->options(StatusColaborador::class)
                     ->default(StatusColaborador::Ativo)
                     ->required()
                     ->live(),
+                Section::make('Documentos')
+                    ->schema([
+                        SpatieMediaLibraryFileUpload::make('documentos')
+                            ->label('Anexos')
+                            ->collection(Colaborador::COLECAO_DOCUMENTOS)
+                            ->multiple()
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                            ->downloadable()
+                            ->openable(),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 }

@@ -24,6 +24,8 @@ use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
 use App\Modules\Organizacional\Models\Setor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -500,6 +502,47 @@ class EntradaSaidaHttpTest extends TestCase
             ->assertOk();
         $response->assertSee('NF-002');
         $response->assertDontSee('NF-001');
+    }
+
+    public function test_nota_fiscal_attachment_is_stored_and_kept_after_editing_and_cancelling_an_entrada(): void
+    {
+        Storage::fake('public');
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.store'), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+            'nota_fiscal_anexo' => UploadedFile::fake()->createWithContent('nf-001.pdf', "%PDF-1.4\n%%EOF"),
+        ]);
+
+        $entrada = Entrada::withoutGlobalScopes()->sole();
+        $this->assertCount(1, $entrada->getMedia(Entrada::COLECAO_NOTA_FISCAL));
+
+        $this->actingAs($this->almoxarife)->put(route('entradas.update', $entrada), [
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedorBetim->id,
+            'numero_nota_fiscal' => 'NF-001',
+            'data_compra' => '2026-07-01',
+            'data_entrega' => '2026-07-05',
+            'quantidade' => 20,
+            'valor_unitario' => '89.90',
+            'responsavel_recebimento_id' => $this->responsavelBetim->id,
+        ]);
+
+        $entrada->refresh();
+        $this->assertCount(1, $entrada->getMedia(Entrada::COLECAO_NOTA_FISCAL));
+
+        $this->actingAs($this->almoxarife)->post(route('entradas.cancelar', $entrada), [
+            'motivo_cancelamento' => 'Nota fiscal cancelada pelo fornecedor',
+        ]);
+
+        $entrada->refresh();
+        $this->assertCount(1, $entrada->getMedia(Entrada::COLECAO_NOTA_FISCAL));
     }
 
     public function test_notifications_are_sent_after_registering_updating_and_cancelling_an_entrada(): void

@@ -1,6 +1,6 @@
 <div>
     <x-card>
-        <form method="POST" action="{{ route('entradas.store') }}" id="form-entrada" class="space-y-6">
+        <form method="POST" action="{{ route('entradas.store') }}" id="form-entrada" class="space-y-6" enctype="multipart/form-data">
             @csrf
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -79,6 +79,12 @@
                     <x-input-label for="valor_unitario" required>Valor Unitário (R$)</x-input-label>
                     <x-text-input type="number" min="0" step="0.01" id="valor_unitario" name="valor_unitario" :value="old('valor_unitario')" />
                     <x-input-error name="valor_unitario" />
+                </div>
+
+                <div>
+                    <x-input-label for="nota_fiscal_anexo">Anexo da Nota Fiscal (PDF ou imagem)</x-input-label>
+                    <input type="file" id="nota_fiscal_anexo" name="nota_fiscal_anexo" accept="application/pdf,image/jpeg,image/png" class="block w-full text-sm text-gray-900 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium" />
+                    <x-input-error name="nota_fiscal_anexo" />
                 </div>
             </div>
 

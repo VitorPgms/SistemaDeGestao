@@ -28,7 +28,7 @@ class EntradaController extends Controller
         $quantidade = (int) $request->input('quantidade');
         $valorUnitario = (float) $request->input('valor_unitario');
 
-        $this->estoqueService->registrarEntrada([
+        $entrada = $this->estoqueService->registrarEntrada([
             'cd_id' => $cdId,
             'produto_id' => $request->input('produto_id'),
             'produto_variacao_id' => $request->input('produto_variacao_id'),
@@ -44,6 +44,10 @@ class EntradaController extends Controller
             'observacoes' => $request->input('observacoes'),
             'registrado_por' => Auth::id(),
         ]);
+
+        if ($request->hasFile('nota_fiscal_anexo')) {
+            $entrada->addMediaFromRequest('nota_fiscal_anexo')->toMediaCollection(Entrada::COLECAO_NOTA_FISCAL);
+        }
 
         Notification::make()->title('Entrada registrada com sucesso.')->success()->send();
 
@@ -73,6 +77,10 @@ class EntradaController extends Controller
             Notification::make()->title($exception->getMessage())->danger()->send();
 
             return back()->withInput();
+        }
+
+        if ($request->hasFile('nota_fiscal_anexo')) {
+            $entrada->addMediaFromRequest('nota_fiscal_anexo')->toMediaCollection(Entrada::COLECAO_NOTA_FISCAL);
         }
 
         Notification::make()->title('Entrada atualizada com sucesso.')->success()->send();
