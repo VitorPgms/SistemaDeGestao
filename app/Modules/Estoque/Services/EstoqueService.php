@@ -5,8 +5,10 @@ namespace App\Modules\Estoque\Services;
 use App\Models\User;
 use App\Modules\Estoque\Enums\SituacaoEstoque;
 use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Enums\StatusSaida;
 use App\Modules\Estoque\Exceptions\EntradaCanceladaException;
 use App\Modules\Estoque\Exceptions\EstoqueInsuficienteException;
+use App\Modules\Estoque\Exceptions\SaidaCanceladaException;
 use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\MotivoSaida;
@@ -133,6 +135,65 @@ class EstoqueService
     }
 
     /**
+     * Recalcula o estoque para refletir a saída editada: devolve a
+     * quantidade antiga do produto/variação originais e debita a nova
+     * quantidade do produto/variação atuais (podem ser os mesmos).
+     *
+     * @throws SaidaCanceladaException
+     * @throws EstoqueInsuficienteException
+     */
+    public function atualizarSaida(Saida $saida, array $dados): Saida
+    {
+        if ($saida->status === StatusSaida::Cancelada) {
+            throw new SaidaCanceladaException;
+        }
+
+        return DB::transaction(function () use ($saida, $dados) {
+            $this->devolverQuantidade($saida->cd_id, $saida->produto_id, $saida->produto_variacao_id, $saida->quantidade);
+
+            $estoque = $this->localizarOuCriarEstoque($saida->cd_id, $dados['produto_id'], $dados['produto_variacao_id'] ?? null);
+
+            if ($estoque->quantidade_atual < $dados['quantidade']) {
+                throw new EstoqueInsuficienteException($estoque->quantidade_atual, $dados['quantidade']);
+            }
+
+            $estoque->quantidade_atual -= $dados['quantidade'];
+            $estoque->ultima_saida_at = now();
+            $estoque->save();
+
+            $saida->update($dados);
+
+            return $saida;
+        });
+    }
+
+    /**
+     * Cancela a saída e devolve a quantidade correspondente ao estoque.
+     * Não exclui o registro — mantém o histórico com o motivo e quem cancelou.
+     *
+     * @throws SaidaCanceladaException
+     */
+    public function cancelarSaida(Saida $saida, int $usuarioId, string $motivo): Saida
+    {
+        if ($saida->status === StatusSaida::Cancelada) {
+            throw new SaidaCanceladaException;
+        }
+
+        return DB::transaction(function () use ($saida, $usuarioId, $motivo) {
+            $this->devolverQuantidade($saida->cd_id, $saida->produto_id, $saida->produto_variacao_id, $saida->quantidade);
+
+            $saida->update([
+                'status' => StatusSaida::Cancelada,
+                'motivo_cancelamento' => $motivo,
+                'cancelado_por' => $usuarioId,
+                'cancelado_em' => now(),
+            ]);
+
+            return $saida;
+        });
+    }
+
+    /**
      * Ajuste gerado por uma contagem de inventário (Módulo 5): aplica a
      * diferença encontrada (pode ser positiva ou negativa) e registra o
      * movimento correspondente com `origem` apontando para quem pediu o
@@ -216,6 +277,14 @@ class EstoqueService
         }
 
         $estoque->quantidade_atual -= $quantidade;
+        $estoque->save();
+    }
+
+    private function devolverQuantidade(int $cdId, int $produtoId, ?int $produtoVariacaoId, int $quantidade): void
+    {
+        $estoque = $this->localizarOuCriarEstoque($cdId, $produtoId, $produtoVariacaoId);
+
+        $estoque->quantidade_atual += $quantidade;
         $estoque->save();
     }
 

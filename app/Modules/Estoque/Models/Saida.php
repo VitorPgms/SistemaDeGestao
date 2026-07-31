@@ -3,6 +3,7 @@
 namespace App\Modules\Estoque\Models;
 
 use App\Modules\Core\Concerns\BelongsToCd;
+use App\Modules\Estoque\Enums\StatusSaida;
 use App\Modules\Organizacional\Enums\StatusColaborador;
 use App\Modules\Organizacional\Models\Colaborador;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,6 +32,10 @@ class Saida extends Model
         'data',
         'hora',
         'observacoes',
+        'status',
+        'motivo_cancelamento',
+        'cancelado_por',
+        'cancelado_em',
         'registrado_por',
         'origem_type',
         'origem_id',
@@ -40,6 +45,8 @@ class Saida extends Model
         'quantidade' => 'integer',
         'status_colaborador_snapshot' => StatusColaborador::class,
         'data' => 'date',
+        'status' => StatusSaida::class,
+        'cancelado_em' => 'datetime',
     ];
 
     public function produto(): BelongsTo
@@ -70,6 +77,11 @@ class Saida extends Model
     public function registradoPor(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'registrado_por');
+    }
+
+    public function canceladoPor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'cancelado_por');
     }
 
     public function getActivitylogOptions(): LogOptions

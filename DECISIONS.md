@@ -88,6 +88,8 @@ Notificações de sucesso/erro do módulo passaram a usar `Filament\Notification
 
 Motivo: pedido explícito de UX só para Entradas — não é para replicar nos outros módulos ainda. Revisar quando os próximos módulos (Saídas, Estoque) forem retrabalhados, para decidir se esse padrão vira o padrão geral do sistema.
 
+**Atualização (Módulo 9 — Saídas):** o padrão foi estendido para Saídas (status Ativa/Cancelada, cancelamento em duas etapas com motivo obrigatório, filtros avançados atrás de "Mais filtros", notificações via `Filament\Notifications\Notification` em editar/cancelar). Fluxo de criação (`SaidaController::store`) continua no banner `session('sucesso')` original — não foi alterado. Passa a ser o padrão comum das duas telas de Operações já implementadas; Estoque ainda não foi retrabalhado.
+
 **Importante — build do front-end:** este ambiente não tem Node/npm instalado, e `public/build/` é um bundle Tailwind pré-compilado que não é regerado automaticamente. Qualquer classe Tailwind usada pela primeira vez em uma tela nova (que ainda não apareça em nenhum outro Blade já existente) não vai existir no CSS compilado até alguém rodar `npm run build` numa máquina com Node. O modal de cancelamento deste módulo foi escrito com um pequeno bloco `<style>` próprio (classes `cancelamento-modal-*`), em vez de utilitários Tailwind, exatamente para não depender desse rebuild. Ao criar novas telas com elementos visuais que não existem em nenhuma tela atual (modais, overlays, etc.), usar o mesmo caminho — CSS escrito à mão — ou confirmar antes que o build será atualizado.
 
 ---

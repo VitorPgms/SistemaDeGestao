@@ -93,7 +93,21 @@
 
 ## Módulo 9
 
-⬜ Saídas
+### Saídas
+
+✅ Migration
+
+✅ Model
+
+✅ Policy
+
+✅ Filament Resource (casca fina + Controller/Request/Service)
+
+✅ Seeder de Permissões
+
+✅ Testes
+
+✅ Regras de Negócio
 
 ---
 

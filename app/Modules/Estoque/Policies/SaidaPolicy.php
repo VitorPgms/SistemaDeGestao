@@ -24,4 +24,9 @@ class SaidaPolicy
     {
         return $user->can('saidas.manage');
     }
+
+    public function update(User $user, Saida $saida): bool
+    {
+        return $user->can('saidas.manage') && $this->pertenceAoCdDoUsuario($user, $saida);
+    }
 }
