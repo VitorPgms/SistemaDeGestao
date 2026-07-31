@@ -10,7 +10,6 @@ use App\Modules\Inventario\Filament\Pages\InventarioDetalhe;
 use App\Modules\Inventario\Filament\Pages\Inventarios;
 use App\Modules\Inventario\Filament\Pages\NovoInventario;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -81,8 +80,12 @@ class AdminPanelProvider extends PanelProvider
             // a ordem importa: "inventarios/novo" e "inventarios/{inventario}"
             // têm o mesmo número de segmentos, e a rota curinga precisa vir
             // depois da rota estática, senão "novo" é lido como um ID.
+            //
+            // O Dashboard padrão do Filament (Filament\Pages\Dashboard) não é
+            // registrado: App\Modules\Bi\Filament\Pages\Dashboard (descoberto
+            // via discoverPages abaixo) ocupa a raiz do painel (slug vazio) e
+            // passa a ser a tela inicial pós-login, evitando duas dashboards.
             ->pages([
-                Dashboard::class,
                 Inventarios::class,
                 NovoInventario::class,
                 InventarioDetalhe::class,

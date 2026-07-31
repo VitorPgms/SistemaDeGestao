@@ -113,7 +113,23 @@
 
 ## Módulo 10
 
-⬜ Estoque
+### Estoque
+
+✅ Migration
+
+✅ Model
+
+✅ Policy
+
+✅ Filament Resource (casca fina + Controller/Service)
+
+✅ Seeder de Permissões
+
+✅ Testes
+
+✅ Regras de Negócio
+
+Controle de estoque por CD/produto/variação, com quantidade atual/mínima/ideal, localização e situação (Normal/Atenção/Crítico). Atualizado automaticamente pelas Entradas, Saídas e ajustes de Inventário via `EstoqueService`, com notificação quando o estoque fica crítico. Listagem com filtro por produto e por período, incluindo total de entradas/compras e saídas no período selecionado.
 
 ---
 

@@ -128,6 +128,80 @@ class DashboardHttpTest extends TestCase
         $response->assertSeeInOrder(['Saídas no período', '5']);
     }
 
+    public function test_dashboard_is_the_home_page_after_login(): void
+    {
+        $response = $this->actingAs($this->almoxarife)->get('/admin');
+
+        $response->assertOk();
+        $response->assertSee('Itens em situação Crítica');
+    }
+
+    public function test_non_admin_cannot_see_another_cds_critical_stock_via_cd_id_query_param(): void
+    {
+        $goiania = CentroDistribuicao::create(['nome' => 'Goiânia', 'codigo' => 'GO01']);
+
+        $produtoGoiania = Produto::create([
+            'categoria_id' => $this->produto->categoria_id,
+            'nome' => 'Furadeira Goiânia',
+            'codigo_interno' => 'FUR-GO',
+            'unidade' => 'UN',
+            'status' => 'ativo',
+        ]);
+
+        Estoque::create([
+            'cd_id' => $goiania->id,
+            'produto_id' => $produtoGoiania->id,
+            'quantidade_atual' => 1,
+            'quantidade_minima' => 5,
+            'quantidade_ideal' => 10,
+        ]);
+
+        // $this->almoxarife pertence só a Betim e não tem 'acessar-todos-cds';
+        // mesmo forçando cd_id de Goiânia pela URL, o card e a tabela de
+        // alertas não podem refletir o item crítico de outro CD.
+        $response = $this->actingAs($this->almoxarife)->get(Dashboard::getUrl(['cd_id' => $goiania->id]));
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Itens em situação Crítica', '0']);
+        $response->assertSee('Nenhum item crítico ou em atenção.');
+    }
+
+    public function test_administrador_can_view_another_cds_data_by_choosing_it_in_the_cd_filter(): void
+    {
+        $goiania = CentroDistribuicao::create(['nome' => 'Goiânia', 'codigo' => 'GO01']);
+
+        $produtoGoiania = Produto::create([
+            'categoria_id' => $this->produto->categoria_id,
+            'nome' => 'Furadeira Goiânia',
+            'codigo_interno' => 'FUR-GO',
+            'unidade' => 'UN',
+            'status' => 'ativo',
+        ]);
+
+        Estoque::create([
+            'cd_id' => $goiania->id,
+            'produto_id' => $produtoGoiania->id,
+            'quantidade_atual' => 1,
+            'quantidade_minima' => 5,
+            'quantidade_ideal' => 10,
+        ]);
+
+        Role::findOrCreate('administrador', 'web')->givePermissionTo('acessar-todos-cds');
+        $admin = User::create([
+            'name' => 'Admin',
+            'email' => 'admin@teste.local',
+            'password' => bcrypt('password'),
+            'cd_id' => $this->betim->id,
+            'ativo' => true,
+        ]);
+        $admin->assignRole('administrador');
+
+        $response = $this->actingAs($admin)->get(Dashboard::getUrl(['cd_id' => $goiania->id]));
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Itens em situação Crítica', '1']);
+    }
+
     public function test_user_can_mark_a_low_stock_notification_as_read(): void
     {
         $estoque = Estoque::create([
