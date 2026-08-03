@@ -109,14 +109,14 @@ class Dashboard extends Page
             ->when($produtoId, fn ($q) => $q->where('id', $produtoId))
             ->count();
 
-        // "Quanto foi comprado/saiu no período": mesma regra de negócio já
-        // usada em EstoqueService::anexarTotaisDoPeriodo (status Ativa,
-        // exclui ajuste de inventário) — não duplicada, só reaplicada aqui
-        // com os mesmos dois filtros, para o card bater com a tela de Estoque.
+        // O gráfico/cards representam a movimentação efetiva no estoque, por
+        // isso usam created_at (quando a entrada foi de fato registrada) e
+        // não data_entrega (data de negócio informada manualmente, que pode
+        // divergir da data em que o estoque foi movimentado).
         $entradasBase = Entrada::query()
             ->where('status', StatusEntrada::Ativa)
             ->whereNull('origem_type')
-            ->whereBetween('data_entrega', [$inicio, $fim])
+            ->whereBetween('created_at', [$inicio, $fim])
             ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
             ->when($fornecedorId, fn ($q) => $q->where('fornecedor_id', $fornecedorId))
             ->tap($filtrarPorProduto);
@@ -132,8 +132,8 @@ class Dashboard extends Page
         $saidasQuantidade = (int) (clone $saidasBase)->sum('quantidade');
 
         $entradasPorDia = (clone $entradasBase)
-            ->selectRaw('data_entrega as dia, SUM(quantidade) as total')
-            ->groupBy('data_entrega')
+            ->selectRaw('DATE(created_at) as dia, SUM(quantidade) as total')
+            ->groupBy('dia')
             ->pluck('total', 'dia');
 
         $saidasPorDia = (clone $saidasBase)
