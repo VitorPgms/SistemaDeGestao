@@ -310,6 +310,12 @@ class EstoqueServiceTest extends TestCase
         $this->assertSame($this->almoxarife->id, $entrada->cancelado_por);
         $this->assertNotNull($entrada->cancelado_em);
         $this->assertTrue($entrada->cancelado_em->isToday());
+
+        // ultima_entrada_at não é revertido pelo cancelamento (só a
+        // quantidade), então o registro zerado e sem mínimo/ideal precisa
+        // ficar de fora da listagem padrão de Estoque mesmo assim.
+        $this->assertNotNull($estoque->ultima_entrada_at);
+        $this->assertFalse(Estoque::withoutGlobalScopes()->relevanteParaListagem()->whereKey($estoque->id)->exists());
     }
 
     public function test_cancelar_entrada_blocks_when_a_later_saida_already_consumed_the_stock(): void

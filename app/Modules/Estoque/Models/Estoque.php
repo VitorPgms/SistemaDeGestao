@@ -4,6 +4,8 @@ namespace App\Modules\Estoque\Models;
 
 use App\Modules\Core\Concerns\BelongsToCd;
 use App\Modules\Estoque\Enums\SituacaoEstoque;
+use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Enums\StatusSaida;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -91,5 +93,49 @@ class Estoque extends Model
             $q->where('quantidade_minima', '>', 0)->orWhere('quantidade_ideal', '>', 0);
         })->whereColumn('quantidade_atual', '>', 'quantidade_minima')
             ->whereColumn('quantidade_atual', '<', 'quantidade_ideal');
+    }
+
+    /**
+     * Registro operacionalmente relevante para a listagem padrão: tem
+     * estoque, tem mínimo/ideal configurado (ainda que zerado o atual, para
+     * não esconder situação Crítica) ou tem entrada/saída ATIVA vinculada.
+     *
+     * Não basta checar ultima_entrada_at/ultima_saida_at: esses timestamps
+     * não são revertidos ao cancelar uma Entrada/Saída (cancelarEntrada e
+     * cancelarSaida em EstoqueService só devolvem a quantidade), então uma
+     * entrada cancelada deixaria o registro "com movimentação" para sempre,
+     * mesmo sem nenhuma relevância operacional real. Por isso a checagem
+     * aqui vai direto nas tabelas de origem, filtrando status Ativa.
+     */
+    public function scopeRelevanteParaListagem(Builder $query): Builder
+    {
+        // produto_variacao_id é nullable, e comparar NULL = NULL não bate em
+        // SQL padrão — por isso o whereColumn vem acompanhado do caso "os
+        // dois são nulos", em vez de um operador de igualdade nula específico
+        // de banco (que quebraria a suíte de testes, rodada em SQLite).
+        $mesmaVariacao = function ($sub) {
+            $sub->whereColumn('produto_variacao_id', 'estoques.produto_variacao_id')
+                ->orWhere(function ($q) {
+                    $q->whereNull('produto_variacao_id')->whereNull('estoques.produto_variacao_id');
+                });
+        };
+
+        return $query->where(function (Builder $q) use ($mesmaVariacao) {
+            $q->where('quantidade_atual', '>', 0)
+                ->orWhere('quantidade_minima', '>', 0)
+                ->orWhere('quantidade_ideal', '>', 0)
+                ->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                    ->from('entradas')
+                    ->whereColumn('entradas.cd_id', 'estoques.cd_id')
+                    ->whereColumn('entradas.produto_id', 'estoques.produto_id')
+                    ->where($mesmaVariacao)
+                    ->where('entradas.status', StatusEntrada::Ativa->value))
+                ->orWhereExists(fn ($sub) => $sub->selectRaw('1')
+                    ->from('saidas')
+                    ->whereColumn('saidas.cd_id', 'estoques.cd_id')
+                    ->whereColumn('saidas.produto_id', 'estoques.produto_id')
+                    ->where($mesmaVariacao)
+                    ->where('saidas.status', StatusSaida::Ativa->value));
+        });
     }
 }

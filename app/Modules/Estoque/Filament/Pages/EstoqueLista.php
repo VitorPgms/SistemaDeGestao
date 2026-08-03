@@ -49,10 +49,12 @@ class EstoqueLista extends Page
     {
         $dataInicio = request()->input('data_inicio') ?: now()->startOfMonth()->toDateString();
         $dataFim = request()->input('data_fim') ?: now()->toDateString();
+        $mostrarSemEstoque = request()->boolean('mostrar_sem_estoque');
 
         $estoques = Estoque::query()
             ->with(['produto', 'produtoVariacao', 'centroDistribuicao', 'fornecedorPreferencial'])
             ->when(request()->filled('produto_id'), fn ($query) => $query->where('produto_id', request()->input('produto_id')))
+            ->when(! $mostrarSemEstoque, fn ($query) => $query->relevanteParaListagem())
             ->orderBy('produto_id')
             ->paginate(20)
             ->withQueryString();
@@ -64,6 +66,7 @@ class EstoqueLista extends Page
             'produtos' => Produto::query()->orderBy('nome')->pluck('nome', 'id'),
             'dataInicio' => $dataInicio,
             'dataFim' => $dataFim,
+            'mostrarSemEstoque' => $mostrarSemEstoque,
         ];
     }
 }

@@ -1,6 +1,6 @@
 <div>
     <x-card class="mb-6">
-        <form method="GET" action="{{ \App\Modules\Estoque\Filament\Pages\EstoqueLista::getUrl() }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <form method="GET" action="{{ \App\Modules\Estoque\Filament\Pages\EstoqueLista::getUrl() }}" class="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end">
             <div>
                 <x-input-label for="produto_id">Produto</x-input-label>
                 <x-select-input id="produto_id" name="produto_id" :options="$produtos" placeholder="Todos" :selected="request('produto_id')" />
@@ -12,6 +12,13 @@
             <div>
                 <x-input-label for="data_fim">Período - Até</x-input-label>
                 <x-text-input type="date" id="data_fim" name="data_fim" :value="$dataFim" />
+            </div>
+            <div class="flex items-center pb-1.5">
+                <label for="mostrar_sem_estoque" class="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" id="mostrar_sem_estoque" name="mostrar_sem_estoque" value="1" @checked($mostrarSemEstoque)
+                        class="rounded border-gray-300 text-gray-900 shadow-sm focus:ring-gray-900" />
+                    Mostrar produtos sem estoque
+                </label>
             </div>
             <div>
                 <x-button type="submit" variant="secondary" class="w-full">Filtrar</x-button>
