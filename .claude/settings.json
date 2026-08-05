@@ -9,7 +9,12 @@
       "Bash(grep -rn \"Filament\\\\\\\\\\\\\\\\Pages\\\\\\\\\\\\\\\\Dashboard\" app resources routes tests)",
       "Bash(grep -v \"Bi\\\\\\\\\\\\\\\\Filament\\\\\\\\\\\\\\\\Pages\\\\\\\\\\\\\\\\Dashboard\")",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/admin/login)",
-      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/admin)"
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/admin)",
+      "Bash(vendor/bin/pint tests/Feature/Bi/DashboardHttpTest.php)",
+      "Bash(php -l app/Modules/Bi/Filament/Pages/Dashboard.php)",
+      "Bash(php -l app/Modules/Core/Concerns/ResolvesPeriodo.php)",
+      "Bash(php -l app/Modules/Bi/Filament/Pages/Historico.php)",
+      "Bash(vendor/bin/pint app/Modules/Bi/Filament/Pages/Historico.php app/Modules/Bi/Filament/Pages/Dashboard.php app/Modules/Core/Concerns/ResolvesPeriodo.php database/seeders/BiPermissionsSeeder.php database/seeders/DatabaseSeeder.php tests/Feature/Bi/HistoricoHttpTest.php)"
     ],
     "additionalDirectories": [
       "C:\\Users\\VITORG~1\\AppData\\Local\\Temp"

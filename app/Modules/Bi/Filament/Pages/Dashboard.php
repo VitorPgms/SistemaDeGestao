@@ -2,6 +2,7 @@
 
 namespace App\Modules\Bi\Filament\Pages;
 
+use App\Modules\Core\Concerns\ResolvesPeriodo;
 use App\Modules\Estoque\Enums\StatusEntrada;
 use App\Modules\Estoque\Enums\StatusSaida;
 use App\Modules\Estoque\Models\Categoria;
@@ -19,7 +20,6 @@ use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -31,6 +31,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class Dashboard extends Page
 {
+    use ResolvesPeriodo;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
     // Sem grupo (nenhum navigationGroup): fica fora de Cadastros/Operações/BI,
@@ -224,38 +226,26 @@ class Dashboard extends Page
                 ];
             });
 
-        $ultimasEntradas = Entrada::query()
-            ->with(['produto', 'produtoVariacao'])
+        // Mesma regra de "movimentação real" usada em $entradasBase/$saidasBase:
+        // sem isso, uma Entrada/Saída cancelada apareceria aqui como se fosse
+        // uma movimentação válida.
+        $entradasRecentes = Entrada::query()
+            ->where('status', StatusEntrada::Ativa)
+            ->whereNull('origem_type')
+            ->with(['produto', 'produtoVariacao', 'fornecedor', 'centroDistribuicao'])
             ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
             ->latest('created_at')
             ->take(8)
-            ->get()
-            ->map(fn (Entrada $entrada) => [
-                'tipo' => 'Entrada',
-                'produto' => $entrada->produto->nome.($entrada->produtoVariacao ? " ({$entrada->produtoVariacao->valor})" : ''),
-                'quantidade' => $entrada->quantidade,
-                'data' => $entrada->data_entrega,
-                'criado_em' => $entrada->created_at,
-            ]);
+            ->get();
 
-        $ultimasSaidas = Saida::query()
-            ->with(['produto', 'produtoVariacao'])
+        $saidasRecentes = Saida::query()
+            ->where('status', StatusSaida::Ativa)
+            ->whereNull('origem_type')
+            ->with(['produto', 'produtoVariacao', 'colaborador', 'centroDistribuicao'])
             ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
             ->latest('created_at')
             ->take(8)
-            ->get()
-            ->map(fn (Saida $saida) => [
-                'tipo' => 'Saída',
-                'produto' => $saida->produto->nome.($saida->produtoVariacao ? " ({$saida->produtoVariacao->valor})" : ''),
-                'quantidade' => $saida->quantidade,
-                'data' => $saida->data,
-                'criado_em' => $saida->created_at,
-            ]);
-
-        $ultimasMovimentacoes = $ultimasEntradas->concat($ultimasSaidas)
-            ->sortByDesc('criado_em')
-            ->take(8)
-            ->values();
+            ->get();
 
         return [
             'podeEscolherCd' => $podeEscolherCd,
@@ -297,32 +287,9 @@ class Dashboard extends Page
             'graficoSaidas' => $serieSaidas,
             'alertasEstoque' => $alertasEstoque,
             'maisMovimentados' => $maisMovimentados,
-            'ultimasMovimentacoes' => $ultimasMovimentacoes,
+            'entradasRecentes' => $entradasRecentes,
+            'saidasRecentes' => $saidasRecentes,
             'notificacoes' => $user->unreadNotifications()->latest()->take(5)->get(),
         ];
-    }
-
-    /**
-     * Opções práticas de período (não é um seletor de datas livre por
-     * padrão): hoje, últimos 7/30 dias, este mês, mês anterior, ou
-     * personalizado (usa data_inicio/data_fim da query string).
-     *
-     * @return array{0: Carbon, 1: Carbon}
-     */
-    private function resolverPeriodo(): array
-    {
-        $periodo = request()->input('periodo', 'este_mes');
-
-        return match ($periodo) {
-            'hoje' => [now()->startOfDay(), now()->endOfDay()],
-            '7dias' => [now()->copy()->subDays(6)->startOfDay(), now()->endOfDay()],
-            '30dias' => [now()->copy()->subDays(29)->startOfDay(), now()->endOfDay()],
-            'mes_anterior' => [now()->copy()->subMonthNoOverflow()->startOfMonth(), now()->copy()->subMonthNoOverflow()->endOfMonth()],
-            'personalizado' => [
-                request()->filled('data_inicio') ? Carbon::parse(request()->input('data_inicio'))->startOfDay() : now()->startOfMonth(),
-                request()->filled('data_fim') ? Carbon::parse(request()->input('data_fim'))->endOfDay() : now()->endOfMonth(),
-            ],
-            default => [now()->startOfMonth(), now()->endOfMonth()],
-        };
     }
 }

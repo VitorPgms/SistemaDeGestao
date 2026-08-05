@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             EstoquePermissionsSeeder::class,
             OperacoesPermissionsSeeder::class,
             InventarioPermissionsSeeder::class,
+            BiPermissionsSeeder::class,
             CentroDistribuicaoSeeder::class,
             AdminUserSeeder::class,
             MotivoSaidaSeeder::class,

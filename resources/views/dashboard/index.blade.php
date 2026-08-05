@@ -149,7 +149,7 @@
 
         <x-card>
             <h2 class="text-sm font-medium text-gray-700 mb-4">Compras e consumo no período</h2>
-            <div class="space-y-3">
+            <div class="space-y-6">
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-500">Comprado</span>
                     <span class="text-lg font-semibold text-gray-900">{{ $entradasQuantidade }} un.</span>
@@ -158,7 +158,7 @@
                     <span class="text-sm text-gray-500">Retirado</span>
                     <span class="text-lg font-semibold text-gray-900">{{ $saidasQuantidade }} un.</span>
                 </div>
-                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                <div class="flex items-center justify-between py-3 border-t border-gray-100">
                     <span class="text-sm text-gray-500">Saldo de movimentação</span>
                     <span class="text-lg font-semibold {{ $saldoMovimentacao >= 0 ? 'text-green-600' : 'text-red-600' }}">
                         {{ $saldoMovimentacao >= 0 ? '+' : '' }}{{ $saldoMovimentacao }} un.
@@ -358,33 +358,92 @@
         </div>
     </x-card>
 
-    <x-card class="!p-0">
+    <x-card class="mb-6 !p-0">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-sm font-medium text-gray-700">Últimas movimentações</h2>
+            <h2 class="text-sm font-medium text-gray-700">Entradas recentes</h2>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        <th class="px-6 py-3">Tipo</th>
                         <th class="px-6 py-3">Produto</th>
+                        <th class="px-6 py-3">Fornecedor</th>
+                        <th class="px-6 py-3">NF</th>
                         <th class="px-6 py-3 text-right">Quantidade</th>
                         <th class="px-6 py-3">Data</th>
+                        @if ($podeEscolherCd)
+                            <th class="px-6 py-3">CD</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse ($ultimasMovimentacoes as $movimentacao)
+                    @forelse ($entradasRecentes as $entrada)
                         <tr>
-                            <td class="px-6 py-3">
-                                <x-badge :color="$movimentacao['tipo'] === 'Entrada' ? 'success' : 'info'">{{ $movimentacao['tipo'] }}</x-badge>
+                            <td class="px-6 py-3 font-medium text-gray-900">
+                                {{ $entrada->produto->nome }}
+                                @if ($entrada->produtoVariacao)
+                                    <span class="text-gray-500">({{ $entrada->produtoVariacao->valor }})</span>
+                                @endif
                             </td>
-                            <td class="px-6 py-3 text-gray-900">{{ $movimentacao['produto'] }}</td>
-                            <td class="px-6 py-3 text-right text-gray-600">{{ $movimentacao['quantidade'] }}</td>
-                            <td class="px-6 py-3 text-gray-600">{{ $movimentacao['data']->format('d/m/Y') }}</td>
+                            <td class="px-6 py-3 text-gray-600">{{ $entrada->fornecedor?->razao_social ?? '—' }}</td>
+                            <td class="px-6 py-3 text-gray-600">{{ $entrada->numero_nota_fiscal ?? '—' }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900">{{ $entrada->quantidade }}</td>
+                            <td class="px-6 py-3 text-gray-600">
+                                {{ $entrada->data_entrega->format('d/m/Y') }}
+                                @if ($entrada->data_entrega->isFuture())
+                                    <x-badge color="warning">Prevista</x-badge>
+                                @endif
+                            </td>
+                            @if ($podeEscolherCd)
+                                <td class="px-6 py-3 text-gray-600">{{ $entrada->centroDistribuicao->nome }}</td>
+                            @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">Nenhuma movimentação registrada ainda.</td>
+                            <td colspan="{{ $podeEscolherCd ? 6 : 5 }}" class="px-6 py-8 text-center text-gray-500">Nenhuma entrada registrada ainda.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-card>
+
+    <x-card class="!p-0">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-sm font-medium text-gray-700">Saídas recentes</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        <th class="px-6 py-3">Produto</th>
+                        <th class="px-6 py-3">Colaborador</th>
+                        <th class="px-6 py-3 text-right">Quantidade</th>
+                        <th class="px-6 py-3">Data</th>
+                        @if ($podeEscolherCd)
+                            <th class="px-6 py-3">CD</th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse ($saidasRecentes as $saida)
+                        <tr>
+                            <td class="px-6 py-3 font-medium text-gray-900">
+                                {{ $saida->produto->nome }}
+                                @if ($saida->produtoVariacao)
+                                    <span class="text-gray-500">({{ $saida->produtoVariacao->valor }})</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-3 text-gray-600">{{ $saida->colaborador?->nome ?? '—' }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900">{{ $saida->quantidade }}</td>
+                            <td class="px-6 py-3 text-gray-600">{{ $saida->data->format('d/m/Y') }}</td>
+                            @if ($podeEscolherCd)
+                                <td class="px-6 py-3 text-gray-600">{{ $saida->centroDistribuicao->nome }}</td>
+                            @endif
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="{{ $podeEscolherCd ? 5 : 4 }}" class="px-6 py-8 text-center text-gray-500">Nenhuma saída registrada ainda.</td>
                         </tr>
                     @endforelse
                 </tbody>

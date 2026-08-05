@@ -4,16 +4,20 @@ namespace Tests\Feature\Bi;
 
 use App\Models\User;
 use App\Modules\Bi\Filament\Pages\Dashboard;
+use App\Modules\Estoque\Enums\StatusEntrada;
+use App\Modules\Estoque\Enums\StatusSaida;
 use App\Modules\Estoque\Models\Categoria;
+use App\Modules\Estoque\Models\Entrada;
 use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\MotivoSaida;
 use App\Modules\Estoque\Models\Produto;
 use App\Modules\Estoque\Models\ResponsavelRecebimento;
+use App\Modules\Estoque\Models\Saida;
 use App\Modules\Estoque\Notifications\EstoqueMinimoAtingido;
 use App\Modules\Organizacional\Enums\StatusColaborador;
-use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
+use App\Modules\Organizacional\Models\Colaborador;
 use App\Modules\Organizacional\Models\Setor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -256,6 +260,49 @@ class DashboardHttpTest extends TestCase
         $response->assertSeeInOrder(['Vencido Antigo', 'Vencido Recente', 'Perto De Vencer']);
         $response->assertDontSee('Exame Distante');
         $response->assertSee('Ver mais');
+    }
+
+    public function test_recent_entradas_and_saidas_exclude_cancelled_records(): void
+    {
+        $this->travelTo(now()->setDate(2026, 7, 15));
+
+        // Números/nomes exclusivos das tabelas de recentes (não aparecem em
+        // nenhum select de filtro da página), para que assertDontSee não dê
+        // falso positivo por causa do <select> de produtos, que lista todos
+        // os produtos cadastrados independente de movimentação.
+        Entrada::create([
+            'cd_id' => $this->betim->id,
+            'produto_id' => $this->produto->id,
+            'fornecedor_id' => $this->fornecedor->id,
+            'numero_nota_fiscal' => 'NF-CANCELADA-999',
+            'data_compra' => '2026-07-10',
+            'data_entrega' => '2026-07-10',
+            'quantidade' => 99,
+            'valor_unitario' => 1,
+            'valor_total' => 99,
+            'status' => StatusEntrada::Cancelada,
+            'responsavel_recebimento_id' => $this->responsavel->id,
+            'registrado_por' => $this->almoxarife->id,
+        ]);
+
+        Saida::create([
+            'cd_id' => $this->betim->id,
+            'produto_id' => $this->produto->id,
+            'quantidade' => 5,
+            'colaborador_id' => $this->colaborador->id,
+            'liberado_por' => $this->almoxarife->id,
+            'motivo_saida_id' => MotivoSaida::first()->id,
+            'data' => '2026-07-10',
+            'hora' => '10:00',
+            'registrado_por' => $this->almoxarife->id,
+            'status' => StatusSaida::Cancelada,
+        ]);
+
+        $response = $this->actingAs($this->almoxarife)->get(Dashboard::getUrl());
+
+        $response->assertOk();
+        $response->assertDontSee('NF-CANCELADA-999');
+        $response->assertDontSee($this->colaborador->nome);
     }
 
     public function test_user_can_mark_a_low_stock_notification_as_read(): void
