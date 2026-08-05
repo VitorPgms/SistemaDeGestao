@@ -265,6 +265,37 @@ class ColaboradorResourceTest extends TestCase
         $this->assertSame('normal', $colaborador->statusExamePeriodico());
     }
 
+    public function test_exame_periodico_filter_shows_only_vencido_or_proximo(): void
+    {
+        $supervisor = $this->userComPapel('supervisor', $this->betim);
+        $this->actingAs($supervisor);
+
+        $vencido = $this->criarColaborador(now()->subDays(10)->toDateString());
+        $proximo = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorBetim->id,
+            'nome' => 'Beatriz',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Ativo,
+            'data_proximo_exame_periodico' => now()->addDays(5)->toDateString(),
+        ]);
+        $distante = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->setorBetim->id,
+            'nome' => 'Diego',
+            'funcao' => 'Auxiliar',
+            'data_admissao' => '2024-01-10',
+            'status' => StatusColaborador::Ativo,
+            'data_proximo_exame_periodico' => now()->addDays(90)->toDateString(),
+        ]);
+
+        Livewire::test(ListColaboradores::class)
+            ->filterTable('exame_periodico', true)
+            ->assertCanSeeTableRecords([$vencido, $proximo])
+            ->assertCanNotSeeTableRecords([$distante]);
+    }
+
     public function test_documento_attachment_is_stored_in_the_documentos_collection(): void
     {
         Storage::fake('public');

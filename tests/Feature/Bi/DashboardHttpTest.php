@@ -202,6 +202,62 @@ class DashboardHttpTest extends TestCase
         $response->assertSeeInOrder(['Itens em situação Crítica', '1']);
     }
 
+    public function test_dashboard_shows_upcoming_periodic_exams_ordered_by_urgency(): void
+    {
+        $this->travelTo(now()->setDate(2026, 7, 15));
+
+        $vencidoHaMuitoTempo = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->colaborador->setor_id,
+            'nome' => 'Vencido Antigo',
+            'funcao' => 'Almoxarife',
+            'data_admissao' => '2024-01-01',
+            'data_ultimo_exame_periodico' => '2025-01-01',
+            'data_proximo_exame_periodico' => now()->subDays(45)->toDateString(),
+            'status' => StatusColaborador::Ativo,
+        ]);
+
+        $vencidoRecente = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->colaborador->setor_id,
+            'nome' => 'Vencido Recente',
+            'funcao' => 'Almoxarife',
+            'data_admissao' => '2024-01-01',
+            'data_ultimo_exame_periodico' => '2025-01-01',
+            'data_proximo_exame_periodico' => now()->subDays(12)->toDateString(),
+            'status' => StatusColaborador::Ativo,
+        ]);
+
+        $proximoDoVencimento = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->colaborador->setor_id,
+            'nome' => 'Perto De Vencer',
+            'funcao' => 'Almoxarife',
+            'data_admissao' => '2024-01-01',
+            'data_ultimo_exame_periodico' => '2025-01-01',
+            'data_proximo_exame_periodico' => now()->addDays(8)->toDateString(),
+            'status' => StatusColaborador::Ativo,
+        ]);
+
+        $foraDaJanelaDeAlerta = Colaborador::create([
+            'cd_id' => $this->betim->id,
+            'setor_id' => $this->colaborador->setor_id,
+            'nome' => 'Exame Distante',
+            'funcao' => 'Almoxarife',
+            'data_admissao' => '2024-01-01',
+            'data_ultimo_exame_periodico' => '2025-01-01',
+            'data_proximo_exame_periodico' => now()->addDays(90)->toDateString(),
+            'status' => StatusColaborador::Ativo,
+        ]);
+
+        $response = $this->actingAs($this->almoxarife)->get(Dashboard::getUrl());
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Vencido Antigo', 'Vencido Recente', 'Perto De Vencer']);
+        $response->assertDontSee('Exame Distante');
+        $response->assertSee('Ver mais');
+    }
+
     public function test_user_can_mark_a_low_stock_notification_as_read(): void
     {
         $estoque = Estoque::create([

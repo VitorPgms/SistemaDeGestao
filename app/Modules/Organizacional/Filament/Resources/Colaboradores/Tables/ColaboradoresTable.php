@@ -9,8 +9,10 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class ColaboradoresTable
@@ -61,6 +63,12 @@ class ColaboradoresTable
                 SelectFilter::make('setor_id')
                     ->label('Setor')
                     ->relationship('setor', 'nome'),
+                Filter::make('exame_periodico')
+                    ->label('Exame vencido ou próximo do vencimento')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereNotNull('data_proximo_exame_periodico')
+                        ->whereDate('data_proximo_exame_periodico', '<=', now()->addDays(Colaborador::DIAS_ALERTA_EXAME_PERIODICO))),
             ])
             ->recordActions([
                 EditAction::make(),

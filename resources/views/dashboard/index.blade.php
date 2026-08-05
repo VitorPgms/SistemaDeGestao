@@ -56,6 +56,39 @@
             <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $totalProdutosCadastrados }}</p>
         </x-card>
         <x-card>
+            <p class="text-sm text-gray-500">Colaboradores ativos</p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $totalColaboradores }}</p>
+        </x-card>
+        <x-card>
+            <p class="text-sm text-gray-500">Centros de Distribuição</p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $totalCds }}</p>
+        </x-card>
+        <x-card>
+            <p class="text-sm text-gray-500">Exame periódico mais próximo</p>
+            @if ($proximoExamePeriodico)
+                @php
+                    $statusExame = $proximoExamePeriodico->statusExamePeriodico();
+                    $corStatusExame = match ($statusExame) {
+                        'vencido' => 'danger',
+                        'proximo' => 'warning',
+                        default => 'success',
+                    };
+                    $labelStatusExame = match ($statusExame) {
+                        'vencido' => 'Vencido',
+                        'proximo' => 'Próximo',
+                        default => 'Normal',
+                    };
+                @endphp
+                <p class="mt-2 text-lg font-semibold text-gray-900">{{ $proximoExamePeriodico->nome }}</p>
+                <p class="mt-1 text-sm text-gray-600">
+                    {{ $proximoExamePeriodico->data_proximo_exame_periodico->format('d/m/Y') }}
+                    <x-badge :color="$corStatusExame">{{ $labelStatusExame }}</x-badge>
+                </p>
+            @else
+                <p class="mt-2 text-sm text-gray-500">Nenhum exame cadastrado</p>
+            @endif
+        </x-card>
+        <x-card>
             <p class="text-sm text-gray-500">Itens em estoque</p>
             <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $quantidadeTotalEstoque }}</p>
         </x-card>
@@ -74,16 +107,112 @@
         <x-card>
             <p class="text-sm text-gray-500">Entradas no período</p>
             <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $entradasQuantidade }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ $entradasRegistros }} registros no período</p>
+        </x-card>
+        <x-card>
+            <p class="text-sm text-gray-500">Produtos recebidos no período</p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $produtosRecebidos }}</p>
         </x-card>
         <x-card>
             <p class="text-sm text-gray-500">Saídas no período</p>
             <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $saidasQuantidade }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ $saidasRegistros }} registros no período</p>
         </x-card>
         <x-card>
             <p class="text-sm text-gray-500">Valor comprado no período</p>
             <p class="mt-2 text-3xl font-semibold text-gray-900">R$ {{ number_format($entradasValor, 2, ',', '.') }}</p>
         </x-card>
     </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <x-card>
+            <h2 class="text-sm font-medium text-gray-700 mb-4">Alertas</h2>
+            <ul class="divide-y divide-gray-100">
+                <li class="py-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Itens em estoque crítico</span>
+                    <x-badge color="danger">{{ $itensCriticos }}</x-badge>
+                </li>
+                <li class="py-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Itens em atenção (abaixo do ideal)</span>
+                    <x-badge color="warning">{{ $itensAtencao }}</x-badge>
+                </li>
+                <li class="py-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Entradas previstas em breve</span>
+                    <x-badge color="info">{{ $proximasEntradas->count() }}</x-badge>
+                </li>
+                <li class="py-3 flex items-center justify-between">
+                    <span class="text-sm text-gray-700">Exames periódicos vencidos ou próximos</span>
+                    <x-badge color="warning">{{ $colaboradoresExameAlerta }}</x-badge>
+                </li>
+            </ul>
+        </x-card>
+
+        <x-card>
+            <h2 class="text-sm font-medium text-gray-700 mb-4">Compras e consumo no período</h2>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-500">Comprado</span>
+                    <span class="text-lg font-semibold text-gray-900">{{ $entradasQuantidade }} un.</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-500">Retirado</span>
+                    <span class="text-lg font-semibold text-gray-900">{{ $saidasQuantidade }} un.</span>
+                </div>
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <span class="text-sm text-gray-500">Saldo de movimentação</span>
+                    <span class="text-lg font-semibold {{ $saldoMovimentacao >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $saldoMovimentacao >= 0 ? '+' : '' }}{{ $saldoMovimentacao }} un.
+                    </span>
+                </div>
+            </div>
+        </x-card>
+    </div>
+
+    <x-card class="mb-6 !p-0">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <h2 class="text-sm font-medium text-gray-700">Exames periódicos mais próximos</h2>
+            @if ($colaboradoresExameAlerta > 0)
+                <a href="{{ $urlExamesPeriodicos }}" class="text-sm font-medium text-gray-900 hover:underline">Ver mais</a>
+            @endif
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        <th class="px-6 py-3">Colaborador</th>
+                        @if ($podeEscolherCd)
+                            <th class="px-6 py-3">CD</th>
+                        @endif
+                        <th class="px-6 py-3">Último exame</th>
+                        <th class="px-6 py-3">Próximo exame</th>
+                        <th class="px-6 py-3">Situação</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse ($examesPeriodicosTop5 as $colaborador)
+                        @php $statusExame = $colaborador->statusExamePeriodico(); @endphp
+                        <tr>
+                            <td class="px-6 py-3 font-medium text-gray-900">{{ $colaborador->nome }}</td>
+                            @if ($podeEscolherCd)
+                                <td class="px-6 py-3 text-gray-600">{{ $colaborador->centroDistribuicao->nome }}</td>
+                            @endif
+                            <td class="px-6 py-3 text-gray-600">{{ $colaborador->data_ultimo_exame_periodico?->format('d/m/Y') ?? '—' }}</td>
+                            <td class="px-6 py-3 text-gray-600">{{ $colaborador->data_proximo_exame_periodico->format('d/m/Y') }}</td>
+                            <td class="px-6 py-3">
+                                <x-badge :color="$statusExame === 'vencido' ? 'danger' : 'warning'">
+                                    {{ $statusExame === 'vencido' ? 'Vencido' : 'Próximo do vencimento' }}
+                                </x-badge>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="{{ $podeEscolherCd ? 5 : 4 }}" class="px-6 py-8 text-center text-gray-500">Nenhum exame periódico vencido ou próximo do vencimento.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-card>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <x-card class="lg:col-span-2">
@@ -108,6 +237,9 @@
                     <thead class="bg-gray-50">
                         <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                             <th class="px-6 py-3">Produto</th>
+                            @if ($podeEscolherCd)
+                                <th class="px-6 py-3">CD</th>
+                            @endif
                             <th class="px-6 py-3 text-right">Atual</th>
                             <th class="px-6 py-3 text-right">Mínimo</th>
                             <th class="px-6 py-3 text-right">Ideal</th>
@@ -123,6 +255,9 @@
                                         <span class="text-gray-500">({{ $estoque->produtoVariacao->valor }})</span>
                                     @endif
                                 </td>
+                                @if ($podeEscolherCd)
+                                    <td class="px-6 py-3 text-gray-600">{{ $estoque->centroDistribuicao->nome }}</td>
+                                @endif
                                 <td class="px-6 py-3 text-right text-gray-900">{{ $estoque->quantidade_atual }}</td>
                                 <td class="px-6 py-3 text-right text-gray-600">{{ $estoque->quantidade_minima }}</td>
                                 <td class="px-6 py-3 text-right text-gray-600">{{ $estoque->quantidade_ideal }}</td>
@@ -132,7 +267,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">Nenhum item crítico ou em atenção.</td>
+                                <td colspan="{{ $podeEscolherCd ? 6 : 5 }}" class="px-6 py-8 text-center text-gray-500">Nenhum item crítico ou em atenção.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -179,6 +314,43 @@
                     @empty
                         <tr>
                             <td colspan="3" class="px-6 py-8 text-center text-gray-500">Nenhuma saída no período.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-card>
+
+    <x-card class="mb-6 !p-0">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-sm font-medium text-gray-700">Próximas entradas previstas</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        <th class="px-6 py-3">Produto</th>
+                        <th class="px-6 py-3">Fornecedor</th>
+                        <th class="px-6 py-3 text-right">Quantidade</th>
+                        <th class="px-6 py-3">Previsão de entrega</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse ($proximasEntradas as $entrada)
+                        <tr>
+                            <td class="px-6 py-3 font-medium text-gray-900">
+                                {{ $entrada->produto->nome }}
+                                @if ($entrada->produtoVariacao)
+                                    <span class="text-gray-500">({{ $entrada->produtoVariacao->valor }})</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-3 text-gray-600">{{ $entrada->fornecedor?->razao_social ?? '—' }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900">{{ $entrada->quantidade }}</td>
+                            <td class="px-6 py-3 text-gray-600">{{ $entrada->data_entrega->format('d/m/Y') }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-500">Nenhuma entrada prevista.</td>
                         </tr>
                     @endforelse
                 </tbody>

@@ -10,10 +10,13 @@ use App\Modules\Estoque\Models\Estoque;
 use App\Modules\Estoque\Models\Fornecedor;
 use App\Modules\Estoque\Models\Produto;
 use App\Modules\Estoque\Models\Saida;
+use App\Modules\Organizacional\Enums\StatusColaborador;
+use App\Modules\Organizacional\Filament\Resources\Colaboradores\ColaboradorResource;
 use App\Modules\Organizacional\Models\CentroDistribuicao;
+use App\Modules\Organizacional\Models\Colaborador;
 use BackedEnum;
-use Filament\Panel;
 use Filament\Pages\Page;
+use Filament\Panel;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Carbon;
@@ -109,6 +112,38 @@ class Dashboard extends Page
             ->when($produtoId, fn ($q) => $q->where('id', $produtoId))
             ->count();
 
+        $totalColaboradores = Colaborador::query()
+            ->where('status', StatusColaborador::Ativo)
+            ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
+            ->count();
+
+        // Usuário sem "acessar-todos-cds" só enxerga o próprio CD (mesma regra
+        // do CdScope) — não há query aqui, é o mesmo 1 CD que já delimita todo
+        // o resto do dashboard para ele.
+        $totalCds = $podeEscolherCd
+            ? CentroDistribuicao::query()->when($cdId, fn ($q) => $q->where('id', $cdId))->count()
+            : 1;
+
+        // "Vencido" ou "próximo" (dentro dos DIAS_ALERTA_EXAME_PERIODICO) é
+        // equivalente, em SQL, a data_proximo_exame_periodico <= hoje + N dias
+        // — mesma janela usada por Colaborador::statusExamePeriodico() e pelo
+        // filtro "Exame vencido ou próximo do vencimento" na listagem de
+        // Colaboradores. Ordenar por essa data já entrega a prioridade certa:
+        // vencidos há mais tempo (datas mais antigas) primeiro, depois os
+        // que vencem mais cedo.
+        $examesPeriodicos = Colaborador::query()
+            ->where('status', StatusColaborador::Ativo)
+            ->whereNotNull('data_proximo_exame_periodico')
+            ->whereDate('data_proximo_exame_periodico', '<=', now()->addDays(Colaborador::DIAS_ALERTA_EXAME_PERIODICO))
+            ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
+            ->with('centroDistribuicao')
+            ->orderBy('data_proximo_exame_periodico')
+            ->get();
+
+        $proximoExamePeriodico = $examesPeriodicos->first();
+        $colaboradoresExameAlerta = $examesPeriodicos->count();
+        $examesPeriodicosTop5 = $examesPeriodicos->take(5);
+
         // O gráfico/cards representam a movimentação efetiva no estoque, por
         // isso usam created_at (quando a entrada foi de fato registrada) e
         // não data_entrega (data de negócio informada manualmente, que pode
@@ -122,6 +157,22 @@ class Dashboard extends Page
             ->tap($filtrarPorProduto);
         $entradasQuantidade = (int) (clone $entradasBase)->sum('quantidade');
         $entradasValor = (float) (clone $entradasBase)->sum('valor_total');
+        $entradasRegistros = (clone $entradasBase)->count();
+        $produtosRecebidos = (clone $entradasBase)->distinct('produto_id')->count('produto_id');
+
+        // Não usa o período do filtro: são entregas com data_entrega futura,
+        // independente de quando o registro foi cadastrado (created_at).
+        $proximasEntradas = Entrada::query()
+            ->where('status', StatusEntrada::Ativa)
+            ->whereNull('origem_type')
+            ->whereDate('data_entrega', '>=', now())
+            ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
+            ->when($fornecedorId, fn ($q) => $q->where('fornecedor_id', $fornecedorId))
+            ->tap($filtrarPorProduto)
+            ->with(['produto', 'produtoVariacao', 'fornecedor'])
+            ->orderBy('data_entrega')
+            ->limit(5)
+            ->get();
 
         $saidasBase = Saida::query()
             ->where('status', StatusSaida::Ativa)
@@ -130,6 +181,8 @@ class Dashboard extends Page
             ->when($cdId, fn ($q) => $q->where('cd_id', $cdId))
             ->tap($filtrarPorProduto);
         $saidasQuantidade = (int) (clone $saidasBase)->sum('quantidade');
+        $saidasRegistros = (clone $saidasBase)->count();
+        $saldoMovimentacao = $entradasQuantidade - $saidasQuantidade;
 
         $entradasPorDia = (clone $entradasBase)
             ->selectRaw('DATE(created_at) as dia, SUM(quantidade) as total')
@@ -151,8 +204,8 @@ class Dashboard extends Page
             $serieSaidas[] = (int) ($saidasPorDia[$chave] ?? 0);
         }
 
-        $alertasEstoque = (clone $estoqueBase)->with(['produto', 'produtoVariacao'])->critico()->get()
-            ->concat((clone $estoqueBase)->with(['produto', 'produtoVariacao'])->atencao()->get())
+        $alertasEstoque = (clone $estoqueBase)->with(['produto', 'produtoVariacao', 'centroDistribuicao'])->critico()->get()
+            ->concat((clone $estoqueBase)->with(['produto', 'produtoVariacao', 'centroDistribuicao'])->atencao()->get())
             ->values();
 
         $maisMovimentados = (clone $saidasBase)
@@ -218,13 +271,27 @@ class Dashboard extends Page
             'fornecedores' => ($podeEscolherCd ? Fornecedor::withoutGlobalScopes() : Fornecedor::query())->orderBy('razao_social')->pluck('razao_social', 'id'),
             'fornecedorSelecionado' => $fornecedorId,
             'totalProdutosCadastrados' => $totalProdutosCadastrados,
+            'totalColaboradores' => $totalColaboradores,
+            'totalCds' => $totalCds,
+            'proximoExamePeriodico' => $proximoExamePeriodico,
+            'colaboradoresExameAlerta' => $colaboradoresExameAlerta,
+            'examesPeriodicosTop5' => $examesPeriodicosTop5,
+            'urlExamesPeriodicos' => ColaboradorResource::getUrl('index', [
+                'filters' => ['exame_periodico' => ['isActive' => true]],
+                'sort' => 'data_proximo_exame_periodico:asc',
+            ]),
             'quantidadeTotalEstoque' => $quantidadeTotalEstoque,
             'itensCriticos' => $itensCriticos,
             'itensAtencao' => $itensAtencao,
             'itensNormais' => $itensNormais,
             'entradasQuantidade' => $entradasQuantidade,
             'entradasValor' => $entradasValor,
+            'entradasRegistros' => $entradasRegistros,
+            'produtosRecebidos' => $produtosRecebidos,
+            'proximasEntradas' => $proximasEntradas,
             'saidasQuantidade' => $saidasQuantidade,
+            'saidasRegistros' => $saidasRegistros,
+            'saldoMovimentacao' => $saldoMovimentacao,
             'graficoLabels' => $labels,
             'graficoEntradas' => $serieEntradas,
             'graficoSaidas' => $serieSaidas,
